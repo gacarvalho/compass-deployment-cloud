@@ -27,7 +27,6 @@ from pyspark.sql.functions import col, count, when, lit, current_timestamp
 # COMMAND ----------
 
 # Realiza configuracao de logging, storage e token
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logging.getLogger("pyspark").setLevel(logging.WARNING)
 logger = logging.getLogger("compass.apple")
@@ -51,15 +50,19 @@ spark.conf.set("spark.databricks.delta.autoCompact.enabled", "true")
 
 # COMMAND ----------
 
+# A classe ExecutionMetricsCollector não realiza nenhuma operação pesada no cluster. 
+# Como? => Seu único papel é consolidar metadados, como o tempo de execução, e registrar os resultados das ações do Spark que já foram executadas. As operações que demandam maior processamento — como extração, padronização, carga e validação de dados — ocorrem de forma sequencial, disparando seus próprios jobs no cluster. Entre essas operações, a função validate_data() é a que mais impacta a performance, pois envolve múltiplas contagens e filtragens de registros que é executada => após a carga dos dados na tabela Bronze.
 class ExecutionMetricsCollector:
     """
-    Coleta métricas de execução Spark (sem dependência de sparkmeasure).
+    Coleta métricas de execução Spark 
     """
 
     def __init__(self, spark: SparkSession):
         self.spark = spark
         self.start_time = None
         self.end_time = None
+        self.valid_count = 0
+        self.invalid_count = 0
 
     def start_collection(self):
         """Marca início do processo"""
@@ -69,10 +72,13 @@ class ExecutionMetricsCollector:
         """Marca fim do processo"""
         self.end_time = datetime.now()
 
+    def set_counts(self, valid_count: int, invalid_count: int):
+        """Define as contagens coletadas da execução da validação."""
+        self.valid_count = valid_count
+        self.invalid_count = invalid_count
+
     def collect_metrics(
         self,
-        valid_df: DataFrame,
-        invalid_df: DataFrame,
         validation_results: dict,
         id_app: str,
         layer_lake: str
@@ -87,16 +93,16 @@ class ExecutionMetricsCollector:
         total_time = (self.end_time - self.start_time).total_seconds()
         formatted_time = f"{total_time:.2f} s"
 
-        # Contagens
-        count_valid = valid_df.count()
-        count_invalid = invalid_df.count()
+        # Contagens (agora obtidas de set_counts)
+        count_valid = self.valid_count
+        count_invalid = self.invalid_count
         total_records = count_valid + count_invalid
         percentage_valid = (count_valid / total_records * 100) if total_records > 0 else 0.0
 
         # Monta dicionário de métricas (GENÉRICO)
         metrics = {
             "owner": {
-                "sigla": "DT",
+                "dominio": "DOMIMIO_FICT",
                 "projeto": "compass",
                 "layer_lake": f"{layer_lake}"
             },
@@ -120,148 +126,6 @@ class ExecutionMetricsCollector:
 
         return json.dumps(metrics, indent=2)
 
-
-def validate_data(
-    spark: SparkSession,
-    df: DataFrame,
-    compass_config=None,
-    ignore_columns: list = None,
-    primary_key=None  # Opcional, pode ser str ou lista de colunas
-) -> tuple:
-    """
-    Valida um DataFrame de ingestão com base em regras de negócio e contrato (compass_config).
-
-    Args:
-        spark (SparkSession): sessão Spark.
-        df (DataFrame): DataFrame a ser validado.
-        compass_config: lista de Rows (contrato da tabela, contém rule_control).
-        ignore_columns (list): colunas a ignorar nas validações.
-        primary_key (str ou list, opcional): coluna(s) para validar duplicidade.
-
-    Returns:
-        tuple: (valid_records, invalid_records, validation_results)
-    """
-    if ignore_columns is None:
-        ignore_columns = []
-
-    # Normaliza primary_key para lista
-    if isinstance(primary_key, str):
-        primary_key = [primary_key]
-    elif primary_key is None:
-        primary_key = []
-
-    validation_results = {
-        "duplicate_check": {"message": None, "status": None, "code": None},
-        "null_check": {"message": None, "status": None, "code": None},
-        "type_consistency_check": {"message": None, "status": None, "code": None},
-        "total_records": df.count(),
-    }
-
-    # 1. Verificação de duplicidade
-    if primary_key:
-        # garante que todas as colunas existam no DF
-        pk_cols = [col for col in primary_key if col in df.columns]
-        if not pk_cols:
-            pk_cols = df.columns
-            duplicate_msg = "Duplicatas encontradas considerando todas as colunas (nenhuma PK valida encontrada)."
-        else:
-            duplicate_msg = f"Duplicatas encontradas com base na chave primária {pk_cols}."
-    else:
-        pk_cols = df.columns
-        duplicate_msg = "Duplicatas encontradas considerando todas as colunas."
-
-    duplicates = df.groupBy(pk_cols).count().filter(F.col("count") > 1)
-    duplicate_count = duplicates.count()
-
-    if duplicate_count > 0:
-        validation_results["duplicate_check"].update({
-            "status": False,
-            "code": 409,
-            "message": f"{duplicate_msg} Total: {duplicate_count} registros."
-        })
-    else:
-        validation_results["duplicate_check"].update({
-            "status": True,
-            "code": 200,
-            "message": "Nenhum registro duplicado encontrado."
-        })
-
-    # 2. Verificação de nulos (via rules do compass_config)
-    null_issues = {}
-    rule_list = []
-
-    if compass_config:
-        raw_rules = compass_config[0]["rule_control"]
-        # Se vier como string JSON
-        if isinstance(raw_rules, str):
-            try:
-                rule_list = json.loads(raw_rules)
-            except Exception as e:
-                logging.warning(f"Nao foi possível interpretar rule_control: {raw_rules} ({e})")
-                rule_list = []
-        # Se vier como Row, converte para dict
-        elif isinstance(raw_rules, pyspark.sql.types.Row):
-            rule_list = [raw_rules.asDict()]
-        # Se já for lista de Rows
-        elif isinstance(raw_rules, list) and all(isinstance(r, pyspark.sql.types.Row) for r in raw_rules):
-            rule_list = [r.asDict() for r in raw_rules]
-        # Se já for lista de dicts
-        else:
-            rule_list = raw_rules
-
-    for rule_dict in rule_list:
-        rule = rule_dict.get("rule")
-        value = rule_dict.get("value")
-
-        if rule == "not_empty" and value.lower() == "true":
-            for col in df.columns:
-                if col in ignore_columns:
-                    continue
-                null_count = df.filter(F.col(col).isNull() | (F.col(col) == "")).count()
-                if null_count > 0:
-                    null_issues[col] = null_count
-                    logging.warning(
-                        f"Regra not_empty violada na coluna '{col}': {null_count} nulos/vazios encontrados"
-                    )
-
-    if null_issues:
-        validation_results["null_check"].update({
-            "status": False,
-            "code": 400,
-            "message": f"Valores nulos encontrados: {null_issues}"
-        })
-    else:
-        validation_results["null_check"].update({
-            "status": True,
-            "code": 200,
-            "message": "Nenhum valor nulo encontrado (considerando regras aplicadas)."
-        })
-
-    # 3. Consistência de tipos (placeholder)
-    validation_results["type_consistency_check"].update({
-        "status": False,
-        "code": 0,
-        "message": "Nenhuma validacao de tipo definida"
-    })
-
-    # 4. Separação registros válidos e inválidos
-    invalid_records = spark.createDataFrame([], df.schema)
-
-    if null_issues:
-        for col_name in null_issues.keys():
-            invalid_records = invalid_records.union(
-                df.filter(F.col(col_name).isNull() | (F.col(col_name) == ""))
-            )
-
-    if duplicate_count > 0:
-        duplicate_records = df.join(duplicates.select(*pk_cols), on=pk_cols, how="inner")
-        invalid_records = invalid_records.union(duplicate_records)
-
-    valid_records = df.subtract(invalid_records)
-
-    return valid_records, invalid_records, validation_results
-
-
 # COMMAND ----------
 
 # ===================== Variaveis de entrada via param
@@ -269,7 +133,6 @@ date_partition = dbutils.widgets.get("date_partition")
 app_reference  = dbutils.widgets.get("app_reference")
 application    = dbutils.widgets.get("application")
 layer_source   = dbutils.widgets.get("layer_source")
-
 
 params = {
     "date_partition": date_partition,
@@ -280,7 +143,7 @@ params = {
 
 logging.info("Parâmetros de entrada: %s", json.dumps(params))
 
-# ===================== codigo
+# ===================== entrada
 data_control = "control_params_compass.data_config"
 partition_col = "date_load"
 
@@ -293,8 +156,9 @@ compass_config = spark.read.table(data_control) \
                            .filter((F.col("source_layer") == layer_source) &
                                    (F.col("table_name_target") == application)) \
                            .orderBy(F.desc("version")) \
-                           .limit(1) \
-                           .collect()
+                           .take(1)
+
+
 if not compass_config:
     raise ValueError(f"Nenhuma configuração encontrada para layer {layer_source} e aplicação {application}")
 
@@ -305,7 +169,6 @@ if not compass_config:
 def get_config_compass(cfg):
     """
     Exibe as configurações via logging e retorna cada variável separadamente.
-    Suporta PySpark Row ou dict.
 
     Args:
         cfg (Row ou dict): configuração do compass_config[0]
@@ -313,7 +176,7 @@ def get_config_compass(cfg):
     Returns:
         tuple: todas as variáveis em ordem
     """
-    # Se for Row do PySpark, converte para dict
+    # converte para dict
     if hasattr(cfg, "asDict"):
         cfg = cfg.asDict()
 
@@ -338,7 +201,7 @@ def get_config_compass(cfg):
     not_empty_rule = "false"
     evolution_mergeschema = "false"
 
-    # Itera sobre a lista de regras (Row ou dict)
+    # Itera sobre a lista de regras 
     if rule_control and isinstance(rule_control, list):
         for rule in rule_control:
             # Converte Row para dict se necessário
@@ -447,7 +310,7 @@ last_update_control = get_config_compass(cfg)
 # COMMAND ----------
 
 
-# Mapas de tipos Spark
+# Mapas de tipos 
 type_map = {
     "STRING": T.StringType(),
     "INT": T.IntegerType(),
@@ -658,7 +521,7 @@ def add_columns_complement(
     for r in (schema_depara or []):
         if isinstance(r, (list, tuple)) and len(r) == 2:
             source, target = r
-            depara_list.append((target, source))  # destino -> origem
+            depara_list.append((target, source))  # destino => origem
         elif isinstance(r, dict):
             depara_list.append((r["target_column"], r["source_column"]))
         elif hasattr(r, "asDict"):
@@ -667,7 +530,7 @@ def add_columns_complement(
         else:
             raise ValueError(f"Formato inválido em schema_depara: {r}")
 
-    # Cria mapa DESTINO -> ORIGEM
+    # Cria mapa DESTINO => ORIGEM
     map_dest_to_source = {dest: src for dest, src in depara_list}
 
     for item in schema_target:
@@ -729,16 +592,6 @@ def save_data(
         date_load=date_load
     )
 
-    num_rows = df_final.count()
-    avg_row_size_bytes = 1024
-    estimated_size_bytes = num_rows * avg_row_size_bytes
-
-    if estimated_size_bytes < 64 * 1024 * 1024:
-        df_final = df_final.coalesce(1)
-        logger.info(f"DataFrame pequeno ({estimated_size_bytes / 1024**2:.2f} MB), aplicando coalesce(1)")
-    else:
-        logger.info(f"DataFrame grande ({estimated_size_bytes / 1024**2:.2f} MB), mantendo repartições normais")
-
     if num_rows == 0:
         logger.warning("Nenhum dado para gravar.")
         return
@@ -774,6 +627,153 @@ save_data(
 
 
 logger.info("Processo de ingestão finalizado, iniciando o trabalho de coleta de métricas!")
+
+def validate_data(
+    spark: SparkSession,
+    df: DataFrame,
+    compass_config=None,
+    ignore_columns: list = None,
+    primary_key=None
+) -> tuple:
+    """
+    Valida um DataFrame de ingestão de forma otimizada.
+    """
+    if ignore_columns is None:
+        ignore_columns = []
+
+    # Normaliza primary_key para lista
+    if isinstance(primary_key, str):
+        primary_key = [primary_key]
+    elif primary_key is None:
+        primary_key = []
+
+    validation_results = {
+        "duplicate_check": {"message": None, "status": None, "code": None},
+        "null_check": {"message": None, "status": None, "code": None},
+        "type_consistency_check": {"message": None, "status": None, "code": None},
+        "total_records": df.count(),
+    }
+
+    # Prepara as regras de validação
+    rule_list = []
+    if compass_config:
+        raw_rules = compass_config[0]["rule_control"]
+        if isinstance(raw_rules, str):
+            try:
+                rule_list = json.loads(raw_rules)
+            except Exception as e:
+                logging.warning(f"Não foi possível interpretar rule_control: {raw_rules} ({e})")
+                rule_list = []
+        elif isinstance(raw_rules, pyspark.sql.types.Row):
+            rule_list = [raw_rules.asDict()]
+        elif isinstance(raw_rules, list) and all(isinstance(r, pyspark.sql.types.Row) for r in raw_rules):
+            rule_list = [r.asDict() for r in raw_rules]
+        else:
+            rule_list = raw_rules
+    
+    # Adiciona colunas de status de validação => 1. Duplicidade
+    if primary_key:
+        pk_cols = [col for col in primary_key if col in df.columns]
+        if not pk_cols:
+            pk_cols = df.columns
+        
+        # Encontra chaves duplicadas (DataFrame pequeno)
+        duplicate_keys = df.groupBy(pk_cols).count().filter(F.col("count") > 1).select(pk_cols).collect()
+        duplicate_keys_df = spark.createDataFrame(duplicate_keys, df.schema)
+
+        if duplicate_keys:
+            duplicate_msg = f"Duplicatas encontradas com base na chave primária {pk_cols}."
+            df = df.withColumn("is_duplicate", F.when(F.col(pk_cols[0]).isin([r[0] for r in duplicate_keys]), True).otherwise(False))
+        else:
+            duplicate_msg = "Nenhum registro duplicado encontrado."
+            df = df.withColumn("is_duplicate", F.lit(False))
+        
+        duplicate_count = len(duplicate_keys)
+        if duplicate_count > 0:
+            validation_results["duplicate_check"].update({
+                "status": False,
+                "code": 409,
+                "message": f"{duplicate_msg} Total: {duplicate_count} registros."
+            })
+        else:
+            validation_results["duplicate_check"].update({
+                "status": True,
+                "code": 200,
+                "message": duplicate_msg
+            })
+    else:
+        df = df.withColumn("is_duplicate", F.lit(False))
+
+
+    # 2. Nulos (not_empty)
+    null_issues = {}
+    null_expr = F.lit(False)
+    for rule_dict in rule_list:
+        rule = rule_dict.get("rule")
+        value = rule_dict.get("value")
+        if rule == "not_empty" and value.lower() == "true":
+            for col in df.columns:
+                if col in ignore_columns:
+                    continue
+                null_expr = null_expr | F.when(F.col(col).isNull() | (F.col(col) == ""), True).otherwise(False)
+
+    df = df.withColumn("has_null_issue", null_expr)
+    
+    # 3. Consistência de tipos
+    df = df.withColumn("has_type_issue", F.lit(False))
+
+    validation_results["type_consistency_check"].update({
+        "status": False,
+        "code": 0,
+        "message": "Nenhuma validação de tipo definida"
+    })
+
+    # Regras finais
+    df = df.withColumn("is_valid", F.when(F.col("is_duplicate") | F.col("has_null_issue") | F.col("has_type_issue"), False).otherwise(True))
+
+    # Separação e contagem em uma única passagem
+    valid_records = df.filter(F.col("is_valid"))
+    invalid_records = df.filter(~F.col("is_valid"))
+
+    # Coleta as contagens
+    counts = df.groupBy("is_valid").count().collect()
+    
+    valid_count = 0
+    invalid_count = 0
+    for row in counts:
+        if row["is_valid"]:
+            valid_count = row["count"]
+        else:
+            invalid_count = row["count"]
+
+    # Verifica nulos com base na contagem final
+    if invalid_count > 0:
+        for rule_dict in rule_list:
+            if rule_dict.get("rule") == "not_empty" and rule_dict.get("value").lower() == "true":
+                null_counts_by_col = invalid_records.select([F.sum(F.when(F.col(col).isNull() | (F.col(col) == ""), 1).otherwise(0)).alias(col) for col in df.columns if col not in ignore_columns]).collect()[0].asDict()
+                null_issues = {k: v for k, v in null_counts_by_col.items() if v > 0}
+                if null_issues:
+                    validation_results["null_check"].update({
+                        "status": False,
+                        "code": 400,
+                        "message": f"Valores nulos encontrados: {null_issues}"
+                    })
+                else:
+                    validation_results["null_check"].update({
+                        "status": True,
+                        "code": 200,
+                        "message": "Nenhum valor nulo encontrado (considerando regras aplicadas)."
+                    })
+    else:
+        validation_results["null_check"].update({
+            "status": True,
+            "code": 200,
+            "message": "Nenhum valor nulo encontrado (considerando regras aplicadas)."
+        })
+
+
+    # Retorna os DFs e as contagens para o driver
+    return valid_records, invalid_records, validation_results, valid_count, invalid_count
 
 # Exemplo de validação
 valid_df, invalid_df, results = validate_data(
