@@ -163,7 +163,7 @@ def validate_data(
         pk_cols = [col for col in primary_key if col in df.columns]
         if not pk_cols:
             pk_cols = df.columns
-            duplicate_msg = "Duplicatas encontradas considerando todas as colunas (nenhuma PK válida encontrada)."
+            duplicate_msg = "Duplicatas encontradas considerando todas as colunas (nenhuma PK valida encontrada)."
         else:
             duplicate_msg = f"Duplicatas encontradas com base na chave primária {pk_cols}."
     else:
@@ -241,7 +241,7 @@ def validate_data(
     validation_results["type_consistency_check"].update({
         "status": False,
         "code": 0,
-        "message": "Nenhuma validação de tipo definida (genérico)."
+        "message": "Nenhuma validacao de tipo definida"
     })
 
     # 4. Separação registros válidos e inválidos
@@ -269,6 +269,7 @@ date_partition = dbutils.widgets.get("date_partition")
 app_reference  = dbutils.widgets.get("app_reference")
 application    = dbutils.widgets.get("application")
 layer_source   = dbutils.widgets.get("layer_source")
+
 
 params = {
     "date_partition": date_partition,
@@ -318,6 +319,7 @@ def get_config_compass(cfg):
 
     schema_expected = cfg["schema_expected"]   # lista de colunas esperadas
     schema_target   = cfg["schema_target"]     # lista de colunas finais
+    schema_depara   = cfg["schema_depara"]     # lista de-para colunas origem => destino
     table_target_vl = cfg["table_name_target"] # nome da tabela de destino
     rule_control    = cfg["rule_control"]      # regras de validação
     source_config   = cfg["source_config"]     # config da camada raw
@@ -329,6 +331,7 @@ def get_config_compass(cfg):
     table_name_target       = compass_config[0]["table_name_target"]
     schema_source_dict      = compass_config[0]["schema_expected"]    
     schema_target_dict      = compass_config[0]["schema_target"]
+    schema_depara_dict      = compass_config[0]["schema_depara"]
 
 
     # Inicializa com default como "false"
@@ -361,6 +364,7 @@ def get_config_compass(cfg):
 
     # Atribuicao a variaveis de acordo com a configuração: TARGET
     target_schema           = schema_target_dict
+    depara_schema           = schema_depara_dict
     target_table            = table_target_vl
     target_mode             = target_config["mode"]
     target_directory        = target_config["directory"]
@@ -391,6 +395,7 @@ def get_config_compass(cfg):
     logging.info("=== OUTRAS INFORMACOES ===")
     logging.info("version: %s", version)
     logging.info("last_update_control: %s", last_update)
+    logging.info("depara_schema: %s", json.dumps(schema_depara, separators=(",", ":")))
 
     # Retorna todas as variáveis separadamente
     return (
@@ -403,6 +408,7 @@ def get_config_compass(cfg):
         target_directory,
         target_format,
         target_schema,
+        depara_schema,
         partitionBy,
         not_empty_rule,
         evolution_mergeschema,
@@ -424,6 +430,7 @@ if compass_config and len(compass_config) > 0:
         target_directory,
         target_format,
         target_schema,
+        depara_schema,
         partitionBy,
         not_empty_rule,
         evolution_mergeschema,
@@ -433,7 +440,7 @@ if compass_config and len(compass_config) > 0:
 else:
     raise ValueError("compass_config está vazio. Verifique se os dados de configuração foram carregados.")
 
-directory_application, source_format, source_schema, create_empty_if_missing, target_table, target_mode, target_directory, target_format, target_schema, partitionBy, not_empty_rule, evolution_mergeschema, version, \
+directory_application, source_format, source_schema, create_empty_if_missing, target_table, target_mode, target_directory, target_format, target_schema, depara_schema, partitionBy, not_empty_rule, evolution_mergeschema, version, \
 last_update_control = get_config_compass(cfg)
 
 
@@ -471,32 +478,34 @@ def func_read_source_from_config(
         source_config: dict,
         app_reference: str,
         schema_expected: List[Dict[str, str]],
+        schema_depara: List[Dict[str, str]],
         storage_account: str,
         container: str,
         date_partition_path: str = "",
         days_back: int = 0,
         type_map: dict = type_map
 ) -> DataFrame:
-    
+    """
+    Lê dados da origem aplicando schema esperado e regras de de-para
+    apenas para renomear colunas. Cast de tipos será feito posteriormente.
+    """
+
     base_path = f"abfss://{container}@{storage_account}.dfs.core.windows.net/{source_config['directory']}"
     fmt = source_config["format"].lower()
 
     # Calcula paths a ler
     if days_back > 0:
         today = datetime.today()
-        date_paths = [
-            (today - timedelta(days=i)).strftime("%Y-%m-%d")
-            for i in range(days_back)
-        ]
+        date_paths = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days_back)]
         paths = [f"{base_path}{date}/{app_reference}" for date in date_paths]
     else:
         paths = [f"{base_path}{date_partition_path}/{app_reference}"]
 
-    # Filtra paths existentes usando dbutils
+    # Filtra paths existentes
     existing_paths = []
     for p in paths:
         try:
-            _ = dbutils.fs.ls(p)  # se não existir, lança exceção
+            _ = dbutils.fs.ls(p)
             existing_paths.append(p)
         except Exception:
             logger.warning(f"Caminho não existe ou inacessível: {p}")
@@ -505,8 +514,7 @@ def func_read_source_from_config(
         logger.warning("Nenhum caminho existente para leitura. Retornando DataFrame vazio.")
         return spark.createDataFrame([], schema=get_spark_schema_from_list(schema_expected, type_map))
 
-
-    # Leitura dos dados
+    # Leitura inicial
     try:
         if fmt == "csv":
             header = source_config.get("header", "true").lower() == "true"
@@ -520,17 +528,13 @@ def func_read_source_from_config(
 
         elif fmt == "json":
             df_temp = spark.read.json(existing_paths)
-
             if "entry" in df_temp.columns:
                 df_temp = df_temp.select(F.explode("entry").alias("entry")).select("entry.*")
 
+            # Mapeia colunas de acordo com schema_expected
             select_exprs = []
             for col_schema in schema_expected:
-                if hasattr(col_schema, "asDict"):
-                    col_schema_dict = col_schema.asDict()
-                else:
-                    col_schema_dict = col_schema
-
+                col_schema_dict = col_schema.asDict() if hasattr(col_schema, "asDict") else col_schema
                 col_name = col_schema_dict["name_column"]
                 json_path_raw = col_schema_dict.get("other")
 
@@ -546,12 +550,10 @@ def func_read_source_from_config(
             try:
                 df = df_temp.select(*select_exprs)
             except AnalysisException:
+                # fallback: insere null se faltar coluna
                 select_exprs_safe = []
                 for col_schema in schema_expected:
-                    if hasattr(col_schema, "asDict"):
-                        col_schema_dict = col_schema.asDict()
-                    else:
-                        col_schema_dict = col_schema
+                    col_schema_dict = col_schema.asDict() if hasattr(col_schema, "asDict") else col_schema
                     col_name = col_schema_dict["name_column"]
                     json_path_raw = col_schema_dict.get("other")
                     if json_path_raw:
@@ -559,31 +561,6 @@ def func_read_source_from_config(
                     else:
                         select_exprs_safe.append(F.col(col_name))
                 df = df_temp.select(*select_exprs_safe)
-
-            # Aplica os types <=> DE-PARA
-            for col_schema in schema_expected:
-                if hasattr(col_schema, "asDict"):
-                    col_schema_dict = col_schema.asDict()
-                else:
-                    col_schema_dict = col_schema
-
-                col_name = col_schema_dict["name_column"]
-                type_column = col_schema_dict["type_column"].upper()
-
-                if type_column == "STRING":
-                    df = df.withColumn(col_name, F.col(col_name).cast(T.StringType()))
-                elif type_column == "TIMESTAMP":
-                    df = df.withColumn(col_name, F.col(col_name).cast(T.TimestampType()))
-                elif type_column in ["INT", "INTEGER"]:
-                    df = df.withColumn(col_name, F.col(col_name).cast(T.IntegerType()))
-                elif type_column == "DOUBLE":
-                    df = df.withColumn(col_name, F.col(col_name).cast(T.DoubleType()))
-                elif type_column == "BOOLEAN":
-                    df = df.withColumn(col_name, F.col(col_name).cast(T.BooleanType()))
-                elif type_column == "LONG":
-                    df = df.withColumn(col_name, F.col(col_name).cast(T.LongType()))
-                elif type_column == "DECIMAL":
-                    df = df.withColumn(col_name, F.col(col_name).cast(T.DecimalType(38, 18)))
 
         else:
             df = spark.read.format(fmt) \
@@ -593,6 +570,19 @@ def func_read_source_from_config(
     except AnalysisException as e:
         logger.warning(f"Erro ao ler arquivos existentes {existing_paths}: {e}")
         return spark.createDataFrame([], schema=get_spark_schema_from_list(schema_expected, type_map))
+
+    # === Aplicação de DE-PARA apenas para renomear colunas ===
+    for mapping in schema_depara:
+        source_col = mapping["source_column"]
+        target_col = mapping["target_column"]
+
+        if source_col not in df.columns:
+            logger.warning(f"Coluna de origem '{source_col}' não encontrada. Ignorando renomeação para '{target_col}'")
+            continue
+
+        if source_col != target_col:
+            df = df.withColumnRenamed(source_col, target_col)
+            logger.info(f"Coluna renomeada '{source_col}' => '{target_col}'")
 
     # Remove registros corrompidos
     if "_corrupt_record" in df.columns:
@@ -611,55 +601,17 @@ df = func_read_source_from_config(
     source_config=compass_config[0]["source_config"],
     app_reference=app_reference,
     schema_expected=source_schema,
+    schema_depara=depara_schema,
     storage_account=storage_account_name,
     container=container,
     days_back=7
 )
 
-
-
-# COMMAND ----------
-
-
-
-def validate_rules(df: DataFrame, compass_config, ignore_columns: list = None):
-    """
-    Valida regras de controle do compass_config gerando WARNINGs em vez de exceção.
-
-    :param df: DataFrame Spark a validar
-    :param compass_config: lista de Rows (versão mais recente do contrato)
-    :param ignore_columns: lista de colunas a ignorar
-    """
-    if ignore_columns is None:
-        ignore_columns = []
-
-    rule_list = compass_config[0]["rule_control"]  # Traz uma lista de dicionario da tabela de controle, por exemplo: [{"rule": "not_empty", "value": "true"}]
-
-    for rule_dict in rule_list:
-        rule = rule_dict["rule"]
-        value = rule_dict["value"]
-
-        if rule == "not_empty" and value.lower() == "true":
-            # Aplica validação em todas as colunas exceto as ignoradas
-            for col in df.columns:
-                if col in ignore_columns:
-                    continue
-                # Conta valores nulos ou vazios
-                null_count = df.filter(F.col(col).isNull() | (F.col(col) == "")).count()
-                if null_count > 0:
-                    logging.warning(
-                        f"Regra not_empty violada na coluna '{col}': {null_count} valores nulos ou vazios encontrados"
-                    )
-
-
-validate_rules(
-    df=df,
-    compass_config=compass_config
-)
-
+df.printSchema()
 
 # COMMAND ----------
 
+# ================= Funções auxiliares =================
 
 def resolve_spark_type(type_str: str) -> DataType:
     if not type_str:
@@ -677,34 +629,88 @@ def get_delta_schema_safe(table_name: str) -> dict:
         return {f.name: f.dataType for f in spark.table(table_name).schema.fields}
     return {}
 
+# ================= Função central =================
+
 def add_columns_complement(
         df: DataFrame,
         schema_target: List[Dict[str, str]],
+        schema_depara: List[Any],
         delta_schema_map: dict,
         app_reference: str,
         date_load: str
 ) -> DataFrame:
+    """
+    Garante que o DataFrame final tenha todas as colunas do schema_target,
+    aplicando de-para (destino -> origem) e cast de tipos.
+    Colunas de controle (app_reference, ingestion_ts, date_load) são adicionadas ao final.
+
+    Regras:
+      - Se houver de-para para a coluna destino, usa a coluna de ORIGEM indicada.
+      - Se NÃO houver de-para:
+           * se destino existe no DF -> segue normal;
+           * caso contrário -> ERRO.
+    """
+    CONTROL_COLS = {"app_reference", "ingestion_ts", "date_load"}
     expressions = []
 
-    # Cast das colunas do schema alvo
-    for col_def in schema_target:
-        col_name = col_def["name_column"]
-        target_type = delta_schema_map.get(col_name, resolve_spark_type(col_def["type_column"]))
-        expressions.append(F.col(col_name).cast(target_type).alias(col_name) if col_name in df.columns else F.lit(None).cast(target_type).alias(col_name))
+    # Normaliza schema_depara em lista de tuplas (destino, origem)
+    depara_list = []
+    for r in (schema_depara or []):
+        if isinstance(r, (list, tuple)) and len(r) == 2:
+            source, target = r
+            depara_list.append((target, source))  # destino -> origem
+        elif isinstance(r, dict):
+            depara_list.append((r["target_column"], r["source_column"]))
+        elif hasattr(r, "asDict"):
+            r_dict = r.asDict()
+            depara_list.append((r_dict["target_column"], r_dict["source_column"]))
+        else:
+            raise ValueError(f"Formato inválido em schema_depara: {r}")
+
+    # Cria mapa DESTINO -> ORIGEM
+    map_dest_to_source = {dest: src for dest, src in depara_list}
+
+    for item in schema_target:
+        item_dict = item.asDict() if hasattr(item, "asDict") else item
+        col_dest = item_dict["name_column"]
+
+        if col_dest in CONTROL_COLS:
+            continue
+
+        # Descobre a coluna de origem a usar
+        col_src = map_dest_to_source.get(col_dest, col_dest)
+
+        # Se a coluna de origem não existe, mas a coluna destino já existe no DF, usa ela
+        if col_src not in df.columns:
+            if col_dest in df.columns:
+                col_src = col_dest
+            else:
+                raise ValueError(f"Coluna de origem '{col_src}' para destino '{col_dest}' não encontrada no DataFrame.")
+
+        # Resolve tipo alvo
+        target_type = delta_schema_map.get(col_dest, resolve_spark_type(item_dict["type_column"]))
+        current_type = df.schema[col_src].dataType
+
+        expressions.append(F.col(col_src).cast(target_type).alias(col_dest))
+
+        # Logging
+        if col_src == col_dest:
+            logging.info(f"Coluna '{col_dest}': {current_type} => {target_type}")
+        else:
+            logging.info(f"Coluna '{col_dest}' (origem: '{col_src}'): {current_type} => {target_type}")
 
     # Colunas de controle
     expressions.append(F.lit(app_reference.lower()).alias("app_reference"))
     expressions.append(F.current_timestamp().alias("ingestion_ts"))
-
-    # Coluna de partição fixa
     expressions.append(F.lit(date_load).alias("date_load"))
 
-    # Retorna df na visao final
     return df.select(*expressions)
+
 
 def save_data(
         df: DataFrame,
         schema_target: List[Dict[str, str]],
+        schema_depara: List[Any],
         table_name: str,
         target_config: Dict[str, Any],
         app_reference: str,
@@ -712,58 +718,54 @@ def save_data(
 ):
     logger.info("Iniciando processo de gravação...")
 
-    # Schema da Delta
     delta_schema_map = get_delta_schema_safe(table_name)
 
-    # Aplica casts, colunas de controle e partição
     df_final = add_columns_complement(
         df=df,
         schema_target=schema_target,
+        schema_depara=schema_depara,
         delta_schema_map=delta_schema_map,
         app_reference=app_reference,
         date_load=date_load
     )
 
-    # Contagem de registros
     num_rows = df_final.count()
-
-    # Estimativa de tamanho médio por registro (em bytes)
-    # Ajuste conforme sua média real de campos
     avg_row_size_bytes = 1024
-
     estimated_size_bytes = num_rows * avg_row_size_bytes
 
-    if estimated_size_bytes < 64 * 1024 * 1024:  # 64 MB
+    if estimated_size_bytes < 64 * 1024 * 1024:
         df_final = df_final.coalesce(1)
         logger.info(f"DataFrame pequeno ({estimated_size_bytes / 1024**2:.2f} MB), aplicando coalesce(1)")
     else:
         logger.info(f"DataFrame grande ({estimated_size_bytes / 1024**2:.2f} MB), mantendo repartições normais")
 
-    if df_final.count() == 0:
+    if num_rows == 0:
         logger.warning("Nenhum dado para gravar.")
-    else:    
-        # Configuração de escrita
+        return
+
+    if df_final.rdd.isEmpty():  
+        logger.warning("Nenhum dado para gravar. Verificar se houve ingestao!")
+    else:
         fmt = target_config.get("format", "delta")
         mode = target_config.get("mode", "append").lower()
 
         writer = df_final.write.format(fmt).mode(mode).partitionBy("date_load")
 
         if mode == "overwrite":
-            writer = writer.option("replaceWhere", f"date_load = '{date_load}'") # Nota: Opção de replace em caso de overwrite sobrecressando a partição e não a tabela toda!
+            writer = writer.option("replaceWhere", f"date_load = '{date_load}'")
             logger.info(f"Sobrescrevendo partição date_load = '{date_load}'")
 
         writer.saveAsTable(table_name)
-        logger.info(f"Dados gravados com sucesso na tabela {table_name}")
+    logger.info(f"Dados gravados com sucesso na tabela {table_name}")
 
 
-
-# ================== CHAMADA DA FUNCAO SAVE ==================
-
-table_target_name = "b_compass.{}".format(target_table)
+# ===== CHAMADA DE EXEMPLO =====
+table_target_name = f"b_compass.{target_table}"
 
 save_data(
     df=df,
-    schema_target=compass_config[0]["schema_expected"],
+    schema_target=compass_config[0]["schema_target"],
+    schema_depara=compass_config[0]["schema_depara"],
     table_name=table_target_name,
     target_config=compass_config[0]["target_config"],
     app_reference=app_reference,
@@ -771,16 +773,15 @@ save_data(
 )
 
 
-logger.info(f"Processo de ingestao finalizado, iniciando o trabalho de coleta de metricas!")
+logger.info("Processo de ingestão finalizado, iniciando o trabalho de coleta de métricas!")
 
-# Validar ingestão (exemplo)
+# Exemplo de validação
 valid_df, invalid_df, results = validate_data(
-                                        spark=spark,
-                                        df=df,
-                                        compass_config=compass_config
-                                    )
+    spark=spark,
+    df=df,
+    compass_config=compass_config
+)
 
-# Marcar fim
 collector.end_collection()
 
 

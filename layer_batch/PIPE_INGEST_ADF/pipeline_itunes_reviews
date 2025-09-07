@@ -1,0 +1,223 @@
+{
+    "name": "pipeline_itunes_reviews",
+    "properties": {
+        "activities": [
+            {
+                "name": "MainForEachPages",
+                "type": "ForEach",
+                "dependsOn": [],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@range(1,10)",
+                        "type": "Expression"
+                    },
+                    "isSequential": true,
+                    "activities": [
+                        {
+                            "name": "CopyData_Page",
+                            "type": "Copy",
+                            "dependsOn": [],
+                            "policy": {
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "JsonSource",
+                                    "storeSettings": {
+                                        "type": "HttpReadSettings",
+                                        "requestMethod": "GET"
+                                    },
+                                    "formatSettings": {
+                                        "type": "JsonReadSettings"
+                                    }
+                                },
+                                "sink": {
+                                    "type": "JsonSink",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSWriteSettings",
+                                        "fileSystem": "sa-compasslake",
+                                        "folderPath": "raw_compass/apple_store/reviews/@{formatDateTime(utcNow(),'yyyy-MM-dd')}/@{pipeline().parameters.appName}",
+                                        "copyBehavior": "MergeFiles"
+                                    },
+                                    "formatSettings": {
+                                        "type": "JsonWriteSettings",
+                                        "filePattern": "setOfObjects"
+                                    }
+                                },
+                                "enableStaging": false,
+                                "translator": {
+                                    "type": "TabularTranslator",
+                                    "mappings": [
+                                        {
+                                            "source": {
+                                                "path": "author.uri.label"
+                                            },
+                                            "sink": {
+                                                "path": "author_uri"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "author.name.label"
+                                            },
+                                            "sink": {
+                                                "path": "author_name"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "author.label"
+                                            },
+                                            "sink": {
+                                                "path": "author_label"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "updated.label"
+                                            },
+                                            "sink": {
+                                                "path": "updated_at"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "im:rating.label"
+                                            },
+                                            "sink": {
+                                                "path": "rating"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "im:version.label"
+                                            },
+                                            "sink": {
+                                                "path": "version"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "id.label"
+                                            },
+                                            "sink": {
+                                                "path": "review_id"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "title.label"
+                                            },
+                                            "sink": {
+                                                "path": "title"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "content.label"
+                                            },
+                                            "sink": {
+                                                "path": "content"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "content.attributes.type"
+                                            },
+                                            "sink": {
+                                                "path": "content_type_attribute"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "link.attributes.rel"
+                                            },
+                                            "sink": {
+                                                "path": "link_rel"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "link.attributes.href"
+                                            },
+                                            "sink": {
+                                                "path": "link_href"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "im:voteSum.label"
+                                            },
+                                            "sink": {
+                                                "path": "vote_sum"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "im:contentType.attributes.term"
+                                            },
+                                            "sink": {
+                                                "path": "content_term"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "im:contentType.attributes.label"
+                                            },
+                                            "sink": {
+                                                "path": "content_label"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "path": "im:voteCount.label"
+                                            },
+                                            "sink": {
+                                                "path": "vote_count"
+                                            }
+                                        }
+                                    ],
+                                    "collectionReference": "$['feed']['entry']"
+                                }
+                            },
+                            "inputs": [
+                                {
+                                    "referenceName": "itunes_reviews",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "appId": "@pipeline().parameters.appId",
+                                        "pageNumber": "@item()"
+                                    }
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "referenceName": "load_file_in_blob",
+                                    "type": "DatasetReference"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        ],
+        "parameters": {
+            "appId": {
+                "type": "String",
+                "defaultValue": "814456780"
+            },
+            "appName": {
+                "type": "String",
+                "defaultValue": "nubank"
+            }
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-09-03T00:33:01Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}
