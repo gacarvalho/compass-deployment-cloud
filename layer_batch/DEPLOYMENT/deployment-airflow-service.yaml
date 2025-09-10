@@ -1,0 +1,172 @@
+---
+version: '3.8'
+
+x-airflow-common: &airflow-common
+  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.8.1}
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+    _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-databricks
+    AIRFLOW_WEBSERVER_EXPOSE_CONFI: 'true'
+    AIRFLOW_SCHEDULE_MIN_FILE_PROCESS_INTERVAL: 5
+    AIRFLOW_SCHEDULE_DAG_DIR_LIST_INTERVAL: 20
+    AZURE_CLIENT_ID: ""
+    AZURE_CLIENT_SECRET: ""
+    AZURE_TENANT_ID: ""
+    SUBSCRIPTION_ID: ""
+  volumes:
+    - ../../mnt/airflow/dags:/opt/airflow/dags
+    - ../../mnt/airflow/logs:/opt/airflow/logs
+    - ../../mnt/airflow/plugins:/opt/airflow/plugins
+    - /env/.env:/opt/airflow/env/.env
+    - /var/run/docker.sock:/var/run/docker.sock
+  user: "${AIRFLOW_UID:-50000}:0"
+
+services:
+  postgres:
+    image: postgres:13
+    networks:
+      - compass_network
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U airflow" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  redis:
+    image: redis:latest
+    networks:
+      - compass_network
+    expose:
+      - 6379
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    networks:
+      - compass_network
+    ports:
+      - 8080:8080
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    networks:
+      - compass_network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+    networks:
+      - compass_network
+    environment:
+      <<: *airflow-common-env
+      DUMB_INIT_SETSID: "0"
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  airflow-triggerer:
+    <<: *airflow-common
+    networks:
+      - compass_network
+    command: triggerer
+    restart: always
+
+
+  airflow-init:
+    <<: *airflow-common
+    networks:
+      - compass_network
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        # Verifica se o PostgreSQL está pronto
+        until pg_isready -h postgres -U airflow; do
+          echo "Waiting for PostgreSQL to be ready..."
+          sleep 2
+        done
+
+        # Executa o upgrade do banco de dados
+        airflow db upgrade
+
+        # Verifica a versão do Airflow
+        exec /entrypoint airflow version
+    environment:
+      <<: *airflow-common-env
+      AIRFLOW_UID: 50000
+      _AIRFLOW_DB_UPGRADE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+      _PIP_ADDITIONAL_REQUIREMENTS: ''
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-.}:/sources
+    deploy:
+      restart_policy:
+        condition: none
+
+  airflow-cli:
+    <<: *airflow-common
+    networks:
+      - compass_network
+    environment:
+      <<: *airflow-common-env
+      CONNECTION_CHECK_MAX_COUNT: "0"
+    command:
+      - bash
+      - -c
+      - airflow
+
+  flower:
+    <<: *airflow-common
+    networks:
+      - compass_network
+    command: celery flower
+    ports:
+      - 5555:5555
+    restart: always
+
+volumes:
+  postgres-db-volume:
+
+networks:
+  compass_network:
+    external: true
+    driver: overlay
