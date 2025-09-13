@@ -4,14 +4,16 @@ import os
 import pendulum
 import requests
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.dummy import DummyOperator
 from airflow.utils.task_group import TaskGroup
 from azure.identity import ClientSecretCredential
 from azure.mgmt.datafactory import DataFactoryManagementClient
+from azure.storage.blob import BlobServiceClient
 from airflow.models import Variable
+from scripts.extract_mongo_data import extract_data_from_mongo
 
 # Configura o logger para a DAG
 logger = logging.getLogger(__name__)
@@ -21,18 +23,22 @@ class ADFPipelineClient:
     """
     Cliente para interagir com o Azure Data Factory.
     Centraliza a lógica de autenticação e execução de pipelines.
+    Agora usa a credencial padrão para suportar Managed Identity.
     """
-    def __init__(self, subscription_id, tenant_id, client_id, client_secret):
+    def __init__(self, subscription_id):
+        # DefaultAzureCredential lida automaticamente com a autenticação em vários ambientes
+        # incluindo Managed Identity.
         self.credential = ClientSecretCredential(
-            tenant_id=tenant_id,
-            client_id=client_id,
-            client_secret=client_secret
+            tenant_id=os.environ.get("AZURE_TENANT_ID"),
+            client_id=os.environ.get("AZURE_CLIENT_ID"),
+            client_secret=os.environ.get("AZURE_CLIENT_SECRET")
         )
         self.subscription_id = subscription_id
         self.client = DataFactoryManagementClient(
             credential=self.credential,
             subscription_id=self.subscription_id
         )
+
 
     def run_pipeline(self, resource_group, factory_name, pipeline_name, parameters=None, polling_interval=30):
         logger.info(f"Disparando o pipeline '{pipeline_name}' no ADF '{factory_name}'.")
@@ -72,20 +78,51 @@ def trigger_adf_pipeline(**kwargs):
     parameters = kwargs.get('parameters')
     polling_interval = kwargs.get('polling_interval', 30)
     
-    tenant_id = kwargs.get("azure_tenant_id")
-    client_id = kwargs.get("azure_client_id")
-    client_secret = kwargs.get("azure_client_secret")
     subscription_id = kwargs.get("subscription_id")
     
-    if not all([tenant_id, client_id, client_secret, subscription_id]):
-        raise ValueError("Credenciais do Azure não encontradas. Verifique se as variáveis do Airflow foram definidas.")
+    if not subscription_id:
+        raise ValueError("ID da assinatura do Azure não encontrada.")
 
-    client = ADFPipelineClient(subscription_id, tenant_id, client_id, client_secret)
+    client = ADFPipelineClient(subscription_id)
     client.run_pipeline(resource_group, factory_name, pipeline_name, parameters, polling_interval)
+
+# --- FUNÇÃO PARA TRANSFERIR O ARQUIVO PARA O BLOB COM AUTENTICAÇÃO VIA CLIENT SECRET ---
+def upload_to_blob_with_token(**kwargs):
+    ti = kwargs['ti']
+    file_path = ti.xcom_pull(task_ids='group_extract_data_mongodb_reviews.extract_from_mongodb')
+    
+    if not file_path or not os.path.exists(file_path):
+        raise FileNotFoundError(f"Arquivo não encontrado em: {file_path}")
+
+    now_str = datetime.utcnow().strftime("%Y-%m-%d_%H%M%S") 
+
+    container_name = "sa-compasslake"
+    blob_name = f"raw_compass/internal_db/reviews/{kwargs['ds']}/reviews_mongo_{now_str}.json"
+    account_url = Variable.get("AZURE_STORAGE_ACCOUNT_URL")
+
+    # AUTENTICAÇÃO EXPLÍCITA COM CLIENT_SECRET
+    credential = ClientSecretCredential(
+        tenant_id=Variable.get("AZURE_TENANT_ID"),
+        client_id=Variable.get("AZURE_CLIENT_ID"),
+        client_secret=Variable.get("AZURE_CLIENT_SECRET")
+    )
+
+    try:
+        blob_service_client = BlobServiceClient(account_url, credential=credential)
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        
+        logger.info(f"Iniciando o upload do arquivo '{file_path}' para o Blob Storage...")
+        with open(file_path, "rb") as data:
+            blob_client.upload_blob(data, overwrite=True)
+            
+        logger.info(f"Upload para '{blob_name}' no container '{container_name}' concluído com sucesso.")
+        
+    except Exception as e:
+        logger.error(f"Erro durante o upload para o Azure Blob Storage: {e}")
+        raise
 
 # --- FUNÇÃO PARA EXECUTAR O JOB DO DATABRICKS ---
 def trigger_databricks_job(**kwargs):    
-
     databricks_host = kwargs.get("databricks_host")
     databricks_token = kwargs.get("databricks_token")
 
@@ -162,7 +199,7 @@ with DAG(
     
     dm_init = DummyOperator(task_id="dm_init")
 
-    # Centralize a configuração dos aplicativos aqui
+    # Configuração dos aplicativos
     apps_config = [
         {"app_name": "bradesco", "app_id": "336954985"},
         {"app_name": "santander_way", "app_id": "1154266372"},
@@ -171,27 +208,41 @@ with DAG(
         {"app_name": "itau", "app_id": "474505665"}
     ]
 
-    # Parâmetros comuns para as tarefas do ADF
+    # Parâmetros comuns do ADF
     adf_params = {
         "resource_group": "rg-data-compass",
         "factory_name": "datafact-compass",
         "polling_interval": 30,
     }
 
-    # --- Grupo de tarefas: INGESTÃO DE REVIEWS (ADF) ---
+    with TaskGroup("group_extract_data_mongodb_reviews", tooltip="Transferência de arquivo para o Azure Blob Storage") as group_extract_data_mongodb_reviews:
+        
+        extract_from_mongodb = PythonOperator(
+            task_id="extract_from_mongodb",
+            python_callable=extract_data_from_mongo,
+            op_kwargs={
+                "mongo_uri": Variable.get("MONGO_URI"),
+                "db_name": "compass",
+                "collection_name": "reviews_instituicao_compass"
+            }
+        )
+
+        transfer_to_blob = PythonOperator(
+            task_id='transfer_file_to_azure_blob',
+            python_callable=upload_to_blob_with_token,
+        )
+        
+        extract_from_mongodb >> transfer_to_blob
+
     with TaskGroup("group_ingestion_adf", tooltip="Ingestão de Reviews para a RAW via ADF") as group_ingestion_adf:
         ingestion_tasks = {}
         for app in apps_config:
-            # Cria a tarefa de ingestão dinamicamente para cada aplicativo
             task_id = f"ingest_adf_{app['app_name']}"
             ingestion_tasks[app['app_name']] = PythonOperator(
                 task_id=task_id,
                 python_callable=trigger_adf_pipeline,
                 op_kwargs={
                     "pipeline_name": "pipeline_itunes_reviews",
-                    "azure_tenant_id": Variable.get("AZURE_TENANT_ID"),
-                    "azure_client_id": Variable.get("AZURE_CLIENT_ID"),
-                    "azure_client_secret": Variable.get("AZURE_CLIENT_SECRET"),
                     "subscription_id": Variable.get("SUBSCRIPTION_ID"),
                     **adf_params,
                     "parameters": {
@@ -201,11 +252,9 @@ with DAG(
                 }
             )
 
-    # --- Grupo de tarefas: PROCESSAMENTO (DATABRICKS) ---
     with TaskGroup("group_processing_databricks", tooltip="Processamento de Reviews para a camada Bronze") as group_processing_databricks:
         processing_tasks = {}
         for app in apps_config:
-            # Cria a tarefa de processamento dinamicamente para cada aplicativo
             task_id = f"process_databricks_{app['app_name']}"
             processing_tasks[app['app_name']] = PythonOperator(
                 task_id=task_id,
@@ -218,12 +267,12 @@ with DAG(
                     "date_partition": "{{ ds }}",
                     "databricks_host": Variable.get("DATABRICKS_HOST"),
                     "databricks_token": Variable.get("DATABRICKS_TOKEN"),
-                }
+                },
+                retries=3,
+                execution_timeout=timedelta(minutes=60)
             )
 
-    # --- DEFINIÇÃO DAS DEPENDÊNCIAS ---
-    # Início da DAG -> Grupo de Ingestão
+    # --- DEPENDÊNCIAS ---
     dm_init >> group_ingestion_adf
-
-    # O grupo de Ingestão deve ser concluído antes do grupo de Processamento
+    dm_init >> group_extract_data_mongodb_reviews
     group_ingestion_adf >> group_processing_databricks

@@ -13,7 +13,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
-    _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-databricks
+    _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-databricks pymongo
     AIRFLOW_WEBSERVER_EXPOSE_CONFI: 'true'
     AIRFLOW_SCHEDULE_MIN_FILE_PROCESS_INTERVAL: 5
     AIRFLOW_SCHEDULE_DAG_DIR_LIST_INTERVAL: 20

@@ -20,7 +20,7 @@ services:
     image: mongo:7
     container_name: mongodb
     networks:
-      hadoop_network:
+      compass_network:
         aliases:
           - mongodb
     logging:
@@ -40,6 +40,6 @@ volumes:
   mongodb_configdb_data:
 
 networks:
-  hadoop_network:
+  compass_network:
     external: true
     driver: overlay

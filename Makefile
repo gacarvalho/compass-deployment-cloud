@@ -58,10 +58,10 @@ init-mongo:
 
 #################################### deployment environment production ########################################
 deployment-mongodb-service:
-	docker stack deploy -c layer_batch/DEPLOYMENT/deployment-database-mongodb-service.yaml deployment-mondodb
+	docker stack deploy -c layer_batch/deployment/deployment-database-mongodb-service.yaml deployment-mondodb
 
 deployment-airflow-service:
-	docker stack deploy -c layer_batch/DEPLOYMENT/deployment-airflow-service.yaml deployment-airflow
+	docker stack deploy -c layer_batch/deployment/deployment-airflow-service.yaml deployment-airflow
 
 deployment-grafana-service:
-	docker stack deploy -c layer_batch/DEPLOYMENT/deployment-observabilidade-service.yaml deployment-grafana
+	docker stack deploy -c layer_batch/deployment/deployment-observabilidade-service.yaml deployment-grafana

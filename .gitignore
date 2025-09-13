@@ -1,2 +1,3 @@
 mnt/airflow/dags/
 mnt/airflow/logs/
+mnt/mongodb/
