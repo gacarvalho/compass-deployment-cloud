@@ -1,0 +1,45 @@
+---
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-file: "5"
+    max-size: "10m"
+
+x-healthcheck: &default-healthcheck
+  interval: 30s
+  retries: 3
+  start_period: 10s
+  timeout: 10s
+
+x-restart: &default-restart
+  restart: always
+
+services:
+  # Serviço MongoDB
+  database-mongodb:
+    image: mongo:7
+    container_name: mongodb
+    networks:
+      hadoop_network:
+        aliases:
+          - mongodb
+    logging:
+      <<: *default-logging
+    volumes:
+      - ../../mnt/mongodb:/data/db
+      - ../../mnt/mongodb_configData:/data/configdb
+      - ../../mnt/mongodb_init/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER_ADMIN}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS_ADMIN}
+    ports:
+      - "27017:27017"
+
+volumes:
+  mongodb_data:
+  mongodb_configdb_data:
+
+networks:
+  hadoop_network:
+    external: true
+    driver: overlay
