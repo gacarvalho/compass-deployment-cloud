@@ -37,7 +37,7 @@ def generate_unique_comments(num_comments):
     comments = []
     for tpl, service, adj, verb, adv, app in all_combinations[:num_comments]:
         comment = tpl.format(service=service, adjective=adj, verb=verb, adverb=adv)
-        comments.append((comment, app))  # Retorna também o app associado
+        comments.append((comment, app))
     
     return comments
 
