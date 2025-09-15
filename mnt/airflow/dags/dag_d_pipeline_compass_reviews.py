@@ -29,9 +29,9 @@ class ADFPipelineClient:
         # DefaultAzureCredential lida automaticamente com a autenticação em vários ambientes
         # incluindo Managed Identity.
         self.credential = ClientSecretCredential(
-            tenant_id=os.environ.get("AZURE_TENANT_ID"),
-            client_id=os.environ.get("AZURE_CLIENT_ID"),
-            client_secret=os.environ.get("AZURE_CLIENT_SECRET")
+            tenant_id=Variable.get("AZURE_TENANT_ID"),
+            client_id=Variable.get("AZURE_CLIENT_ID"),
+            client_secret=Variable.get("AZURE_CLIENT_SECRET")
         )
         self.subscription_id = subscription_id
         self.client = DataFactoryManagementClient(
@@ -252,17 +252,36 @@ with DAG(
                 }
             )
 
-    with TaskGroup("group_processing_databricks", tooltip="Processamento de Reviews para a camada Bronze") as group_processing_databricks:
-        processing_tasks = {}
-        for app in apps_config:
-            task_id = f"process_databricks_{app['app_name']}"
-            processing_tasks[app['app_name']] = PythonOperator(
-                task_id=task_id,
+    with TaskGroup("group_databricks", tooltip="Processamento de Reviews para a camada Bronze") as group_databricks:
+
+        with TaskGroup("group_databricks_itunes", tooltip="Processamento de Reviews para a camada Bronze") as group_databricks_itunes:
+            processing_tasks = {}
+            for app in apps_config:
+                task_id = f"process_databricks_{app['app_name']}"
+                processing_tasks[app['app_name']] = PythonOperator(
+                    task_id=task_id,
+                    python_callable=trigger_databricks_job,
+                    op_kwargs={
+                        "job_id": 549855026452349,
+                        "app_reference": app['app_name'],
+                        "application": "apple_reviews",
+                        "layer_source": "raw",
+                        "date_partition": "{{ ds }}",
+                        "databricks_host": Variable.get("DATABRICKS_HOST"),
+                        "databricks_token": Variable.get("DATABRICKS_TOKEN"),
+                    },
+                    retries=3,
+                    execution_timeout=timedelta(minutes=60)
+                )
+
+        with TaskGroup("group_databricks_internaldb", tooltip="Processamento de Reviews para a camada Bronze") as group_databricks_internaldb:
+            process_internaldb = PythonOperator(
+                task_id="process_internaldb",
                 python_callable=trigger_databricks_job,
                 op_kwargs={
                     "job_id": 549855026452349,
-                    "app_reference": app['app_name'],
-                    "application": "apple_reviews",
+                    "app_reference": "",
+                    "application": "internal_db",
                     "layer_source": "raw",
                     "date_partition": "{{ ds }}",
                     "databricks_host": Variable.get("DATABRICKS_HOST"),
@@ -272,7 +291,11 @@ with DAG(
                 execution_timeout=timedelta(minutes=60)
             )
 
+
     # --- DEPENDÊNCIAS ---
     dm_init >> group_ingestion_adf
     dm_init >> group_extract_data_mongodb_reviews
-    group_ingestion_adf >> group_processing_databricks
+
+    group_ingestion_adf >> group_databricks_itunes
+    group_extract_data_mongodb_reviews >> group_databricks_internaldb
+
