@@ -1,2 +1,4 @@
 mnt/airflow/logs/
 mnt/mongodb/
+mnt/airflow/dags/__pycache__
+mnt/airflow/dags/__pycache__/dag_d_pipeline_compass_reviews.cpython-38.pyc

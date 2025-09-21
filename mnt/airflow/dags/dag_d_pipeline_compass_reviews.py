@@ -122,7 +122,7 @@ def upload_to_blob_with_token(**kwargs):
         raise
 
 # --- FUNÇÃO PARA EXECUTAR O JOB DO DATABRICKS ---
-def trigger_databricks_job(**kwargs):    
+def trigger_databricks_job(**kwargs):
     databricks_host = kwargs.get("databricks_host")
     databricks_token = kwargs.get("databricks_token")
 
@@ -130,16 +130,21 @@ def trigger_databricks_job(**kwargs):
         raise ValueError("Credenciais do Databricks não encontradas. Verifique se as variáveis do Airflow foram definidas.")
 
     job_id = kwargs['job_id']
-    app_reference = kwargs['app_reference']
     application = kwargs['application']
     date_partition = kwargs['date_partition']
-
+    
+    # Captura do parâmetro `layer_source`
+    layer_source = kwargs.get('layer_source', 'raw')
+    app_reference = kwargs.get('app_reference')
+    
     parameters = {
-        "app_reference": app_reference,
         "application": application,
         "date_partition": date_partition,
-        "layer_source": "raw",
+        "layer_source": layer_source,
     }
+    
+    if app_reference:
+        parameters["app_reference"] = app_reference
 
     run_url = f"{databricks_host}/api/2.1/jobs/run-now"
     run_status_url = f"{databricks_host}/api/2.1/jobs/runs/get"
@@ -149,7 +154,11 @@ def trigger_databricks_job(**kwargs):
     }
 
     try:
-        logger.info(f"Iniciando o job Databricks com ID: {job_id} para {app_reference}")
+        log_message = f"Iniciando o job Databricks com ID: {job_id} para {application} na camada {layer_source}"
+        if app_reference:
+            log_message += f" e app_reference: {app_reference}"
+        logger.info(log_message)
+
         payload = {"job_id": job_id, "job_parameters": parameters}
         response = requests.post(run_url, headers=headers, json=payload)
         response.raise_for_status()
@@ -169,7 +178,7 @@ def trigger_databricks_job(**kwargs):
                     raise Exception(f"Job falhou ou foi cancelado. Detalhes: {json.dumps(status, indent=2)}")
                 break
             time.sleep(10)
-        logger.info(f"Job Databricks {job_id} finalizado com sucesso para {app_reference}!")
+        logger.info(f"Job Databricks {job_id} finalizado com sucesso para {application} na camada {layer_source}!")
         
     except requests.exceptions.RequestException as e:
         logger.error(f"Erro na requisição para a API do Databricks: {e}")
@@ -215,46 +224,50 @@ with DAG(
         "polling_interval": 30,
     }
 
-    with TaskGroup("group_extract_data_mongodb_reviews", tooltip="Transferência de arquivo para o Azure Blob Storage") as group_extract_data_mongodb_reviews:
-        
-        extract_from_mongodb = PythonOperator(
-            task_id="extract_from_mongodb",
-            python_callable=extract_data_from_mongo,
-            op_kwargs={
-                "mongo_uri": Variable.get("MONGO_URI"),
-                "db_name": "compass",
-                "collection_name": "reviews_instituicao_compass"
-            }
-        )
+ # --- CAMADA RAW (INGESTÃO) ---
+    with TaskGroup("group_raw_ingestion", tooltip="Ingestão de dados para a camada RAW") as group_raw_ingestion:
 
-        transfer_to_blob = PythonOperator(
-            task_id='transfer_file_to_azure_blob',
-            python_callable=upload_to_blob_with_token,
-        )
-        
-        extract_from_mongodb >> transfer_to_blob
-
-    with TaskGroup("group_ingestion_adf", tooltip="Ingestão de Reviews para a RAW via ADF") as group_ingestion_adf:
-        ingestion_tasks = {}
-        for app in apps_config:
-            task_id = f"ingest_adf_{app['app_name']}"
-            ingestion_tasks[app['app_name']] = PythonOperator(
-                task_id=task_id,
-                python_callable=trigger_adf_pipeline,
-                op_kwargs={
-                    "pipeline_name": "pipeline_itunes_reviews",
-                    "subscription_id": Variable.get("SUBSCRIPTION_ID"),
-                    **adf_params,
-                    "parameters": {
-                        "appId": app['app_id'],
-                        "appName": app['app_name'],
+        with TaskGroup("group_ingestion_adf", tooltip="Ingestão de Reviews para a RAW via ADF") as group_ingestion_adf:
+            ingestion_tasks = {}
+            for app in apps_config:
+                task_id = f"ingest_adf_{app['app_name']}"
+                ingestion_tasks[app['app_name']] = PythonOperator(
+                    task_id=task_id,
+                    python_callable=trigger_adf_pipeline,
+                    op_kwargs={
+                        "pipeline_name": "pipeline_itunes_reviews",
+                        "subscription_id": Variable.get("SUBSCRIPTION_ID"),
+                        **adf_params,
+                        "parameters": {
+                            "appId": app['app_id'],
+                            "appName": app['app_name'],
+                        }
                     }
+                )
+
+        with TaskGroup("group_raw_extract_internal_db", tooltip="Extração de dados internos para o Azure Blob Storage") as group_raw_extract_internal_db:
+            
+            extract_from_mongodb = PythonOperator(
+                task_id="extract_from_mongodb",
+                python_callable=extract_data_from_mongo,
+                op_kwargs={
+                    "mongo_uri": Variable.get("MONGO_URI"),
+                    "db_name": "compass",
+                    "collection_name": "reviews_instituicao_compass"
                 }
             )
 
-    with TaskGroup("group_databricks", tooltip="Processamento de Reviews para a camada Bronze") as group_databricks:
+            transfer_to_blob = PythonOperator(
+                task_id='transfer_file_to_azure_blob',
+                python_callable=upload_to_blob_with_token,
+            )
+            
+            extract_from_mongodb >> transfer_to_blob
 
-        with TaskGroup("group_databricks_itunes", tooltip="Processamento de Reviews para a camada Bronze") as group_databricks_itunes:
+    # --- CAMADA BRONZE (PROCESSAMENTO INICIAL) ---
+    with TaskGroup("group_bronze_processing", tooltip="Processamento da camada RAW para BRONZE") as group_bronze_processing:
+
+        with TaskGroup("group_databricks_itunes", tooltip="Processamento de Reviews do iTunes para a camada Bronze") as group_databricks_itunes:
             processing_tasks = {}
             for app in apps_config:
                 task_id = f"process_databricks_{app['app_name']}"
@@ -274,7 +287,7 @@ with DAG(
                     execution_timeout=timedelta(minutes=60)
                 )
 
-        with TaskGroup("group_databricks_internaldb", tooltip="Processamento de Reviews para a camada Bronze") as group_databricks_internaldb:
+        with TaskGroup("group_databricks_internaldb", tooltip="Processamento de Reviews do banco interno para a camada Bronze") as group_databricks_internaldb:
             process_internaldb = PythonOperator(
                 task_id="process_internaldb",
                 python_callable=trigger_databricks_job,
@@ -291,11 +304,31 @@ with DAG(
                 execution_timeout=timedelta(minutes=60)
             )
 
+    # --- CAMADA SILVER (REFINAMENTO) ---
+    with TaskGroup("group_databricks_silver", tooltip="Processamento de Reviews para a camada Silver") as group_databricks_silver:
+
+        task_id = "process_databricks_silver"
+        process_databricks_silver = PythonOperator(
+            task_id=task_id,
+            python_callable=trigger_databricks_job,
+            op_kwargs={
+                "job_id": 279987160157338,
+                "application": "instituicao_reviews",
+                "layer_source": "s_compass",
+                "date_partition": "{{ ds }}",
+                "databricks_host": Variable.get("DATABRICKS_HOST"),
+                "databricks_token": Variable.get("DATABRICKS_TOKEN"),
+            },
+            retries=3,
+            execution_timeout=timedelta(minutes=60)
+        )
 
     # --- DEPENDÊNCIAS ---
-    dm_init >> group_ingestion_adf
-    dm_init >> group_extract_data_mongodb_reviews
+    # Ingestão de dados
+    dm_init >> group_raw_ingestion
 
-    group_ingestion_adf >> group_databricks_itunes
-    group_extract_data_mongodb_reviews >> group_databricks_internaldb
+    # Amarra as tarefas de ingestão de RAW às tarefas de processamento BRONZE
+    group_raw_ingestion >> group_bronze_processing
 
+    # Amarra o processamento de BRONZE ao processamento de SILVER
+    group_bronze_processing >> group_databricks_silver
