@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # --- DEFINIÇÃO DA DAG ---
 with DAG(
-    dag_id="DAG_COMPASS_EVENTUAL",
+    dag_id="DAG_E_COMPASS_LOAD_EVENTS_MONGODB",
     default_args={
         "owner": "gacarvalho",
         "depends_on_past": False,
