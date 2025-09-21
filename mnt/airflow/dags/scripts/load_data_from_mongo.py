@@ -13,7 +13,7 @@ CLIENT_SEGMENTS = ["pf", "pj"]
 SERVICE_TYPES = ["cartão de crédito", "empréstimo", "conta corrente", "seguro"]
 SOURCE_CHANNELS = ["website", "mobile_app", "agência", "call_center"]
 
-# Nomes de apps 
+# Nomes de apps disponíveis
 SERVICE_APP = ["INSTITUICAO_APP_BR", "INSTITUICAO_APP_GLOBAL", "INSTITUICAO_APP_SEGUROS", "INSTITUICAO_APP_FINANCIAMENTO","INSTITUICAO_APP_EMPRESAS","INSTITUICAO_APP_CONTA_MEI","INSTITUICAO_APP_CONTA_CORRENTE"]
 
 # Templates para comentários
@@ -41,13 +41,6 @@ def generate_unique_comments(num_comments):
     
     return comments
 
-def generate_app_version():
-    """Gera uma string de versão de app no formato X.Y.Z."""
-    major = random.randint(1, 5)
-    minor = random.randint(0, 10)
-    patch = random.randint(0, 20)
-    return f"{major}.{minor}.{patch}"
-
 def insert_fake_feedbacks(mongo_uri, db_name, collection_name, num_feedbacks=689):
     if not mongo_uri:
         raise ValueError("Variável de ambiente MONGO_URI não configurada!")
@@ -74,18 +67,15 @@ def insert_fake_feedbacks(mongo_uri, db_name, collection_name, num_feedbacks=689
             "service_id": f"PROD-{random.randint(100, 999)}",
             "service_feedback": services,
             "source_channel": random.choice(SOURCE_CHANNELS),
-            "source_id": generate_app_version(),
+            "source_id": fake.word(),
             "app_reference": app,
             "source_user_agent": fake.user_agent()
         }
         feedbacks.append(doc)
 
-    try:
-        with MongoClient(mongo_uri) as client:
-            db = client[db_name]
-            collection = db[collection_name]
-            collection.insert_many(feedbacks)
-    except Exception as e:
-        return f"Erro ao conectar ou inserir dados no MongoDB: {e}"
+    with MongoClient(mongo_uri) as client:
+        db = client[db_name]
+        collection = db[collection_name]
+        collection.insert_many(feedbacks)
 
     return f"{num_feedbacks} avaliações únicas em português inseridas na coleção '{collection_name}' do DB '{db_name}'"
