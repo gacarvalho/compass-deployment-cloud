@@ -119,13 +119,12 @@ def trigger_databricks_job(**kwargs):
     
     job_id = kwargs['job_id']
     
-    # ÚNICO PARÂMETRO OBRIGATÓRIO (USANDO COLCHETES)
+    # PARÂMETROS OBRIGATÓRIOS E OPCIONAIS
     date_partition = kwargs['date_partition']
-    
-    # PARÂMETROS OPCIONAIS (USANDO .GET())
     application = kwargs.get('application')
     layer_source = kwargs.get('layer_source')
     app_reference = kwargs.get('app_reference')
+    env = kwargs.get('env') # Novo parâmetro opcional
         
     parameters = {}
     
@@ -138,7 +137,9 @@ def trigger_databricks_job(**kwargs):
         parameters["layer_source"] = layer_source
     if app_reference:
         parameters["app_reference"] = app_reference
-    
+    if env: # Adiciona o novo parâmetro se ele existir
+        parameters["env"] = env
+
     run_url = f"{databricks_host}/api/2.1/jobs/run-now"
     run_status_url = f"{databricks_host}/api/2.1/jobs/runs/get"
     headers = {
@@ -154,6 +155,8 @@ def trigger_databricks_job(**kwargs):
             log_message += f" na camada {layer_source}"
         if app_reference:
             log_message += f" e app_reference: {app_reference}"
+        if env:
+            log_message += f" (ambiente: {env})"
         logger.info(log_message)
         
         payload = {"job_id": job_id, "job_parameters": parameters}
@@ -273,6 +276,7 @@ with DAG(
                         "application": "apple_reviews",
                         "layer_source": "raw",
                         "date_partition": "{{ ds }}",
+                        "env": "pre", # Adicionado o novo parâmetro
                         "databricks_host": Variable.get("DATABRICKS_HOST"),
                         "databricks_token": Variable.get("DATABRICKS_TOKEN"),
                     },
@@ -290,6 +294,7 @@ with DAG(
                     "application": "internal_db",
                     "layer_source": "raw",
                     "date_partition": "{{ ds }}",
+                    "env": "pre", # Adicionado o novo parâmetro
                     "databricks_host": Variable.get("DATABRICKS_HOST"),
                     "databricks_token": Variable.get("DATABRICKS_TOKEN"),
                 },
@@ -308,6 +313,7 @@ with DAG(
                 "application": "instituicao_reviews",
                 "layer_source": "s_compass",
                 "date_partition": "{{ ds }}",
+                "env": "pre", # Adicionado o novo parâmetro
                 "databricks_host": Variable.get("DATABRICKS_HOST"),
                 "databricks_token": Variable.get("DATABRICKS_TOKEN"),
             },
@@ -324,6 +330,7 @@ with DAG(
             op_kwargs={
                 "job_id": 190064442350392,
                 "date_partition": "{{ ds }}", 
+                "env": "pre", # Adicionado o novo parâmetro
                 "databricks_host": Variable.get("DATABRICKS_HOST"),
                 "databricks_token": Variable.get("DATABRICKS_TOKEN"),
             },
