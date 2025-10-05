@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  grafana:
+    image: grafana/grafana:9.5.18
+    ports:
+      - "4000:3000"
+    user: '0'
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_INSTALL_PLUGINS=grafana-mongodb-datasource
+      - GF_PLUGINS_PREINSTALL=grafana-clock-panel
+ 
+    volumes:
+      - ../../mnt/grafana_data:/var/lib/grafana
+    networks:
+      - compass_network
+    deploy:
+      replicas: 2
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+volumes:
+  grafana_data:
+
+networks:
+  compass_network:
+    external: true
+    driver: overlay

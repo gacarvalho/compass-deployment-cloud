@@ -95,7 +95,7 @@ services:
       <<: *airflow-common-env
       DUMB_INIT_SETSID: "0"
     deploy:
-      replicas: 2
+      replicas: 1
       restart_policy:
         condition: on-failure
         delay: 5s

@@ -86,8 +86,8 @@ def upload_to_blob_with_token(**kwargs):
     if not file_path or not os.path.exists(file_path):
         raise FileNotFoundError(f"Arquivo não encontrado em: {file_path}")
     now_str = datetime.utcnow().strftime("%Y-%m-%d_%H%M%S")
-    container_name = "sa-compasslake"
-    blob_name = f"raw_compass/internal_db/reviews/{kwargs['ds']}/reviews_mongo_{now_str}.json"
+    container_name = "raw-compass"
+    blob_name = f"internal_db/reviews/{kwargs['ds']}/reviews_mongo_{now_str}.json"
     account_url = Variable.get("AZURE_STORAGE_ACCOUNT_URL")
     
     # AUTENTICAÇÃO EXPLICITA COM CLIENT_SECRET
@@ -124,7 +124,10 @@ def trigger_databricks_job(**kwargs):
     application = kwargs.get('application')
     layer_source = kwargs.get('layer_source')
     app_reference = kwargs.get('app_reference')
-    env = kwargs.get('env') # Novo parâmetro opcional
+    env = kwargs.get('env')
+    table_target_name = kwargs.get('table_target_name')
+    layer_target = kwargs.get('layer_target')
+    source_table_name = kwargs.get('source_table_name')
         
     parameters = {}
     
@@ -137,8 +140,14 @@ def trigger_databricks_job(**kwargs):
         parameters["layer_source"] = layer_source
     if app_reference:
         parameters["app_reference"] = app_reference
-    if env: # Adiciona o novo parâmetro se ele existir
+    if env:
         parameters["env"] = env
+    if table_target_name:
+        parameters["table_target_name"] = table_target_name
+    if layer_target:
+        parameters["layer_target"] = layer_target
+    if source_table_name:
+        parameters["source_table_name"] = source_table_name
 
     run_url = f"{databricks_host}/api/2.1/jobs/run-now"
     run_status_url = f"{databricks_host}/api/2.1/jobs/runs/get"
@@ -271,12 +280,12 @@ with DAG(
                     task_id=task_id,
                     python_callable=trigger_databricks_job,
                     op_kwargs={
-                        "job_id": 549855026452349,
+                        "job_id": 605068326475553,
                         "app_reference": app['app_name'],
                         "application": "apple_reviews",
                         "layer_source": "raw",
                         "date_partition": "{{ ds }}",
-                        "env": "pre", # Adicionado o novo parâmetro
+                        "env": "pre",
                         "databricks_host": Variable.get("DATABRICKS_HOST"),
                         "databricks_token": Variable.get("DATABRICKS_TOKEN"),
                     },
@@ -289,12 +298,12 @@ with DAG(
                 task_id="process_internaldb",
                 python_callable=trigger_databricks_job,
                 op_kwargs={
-                    "job_id": 549855026452349,
+                    "job_id": 605068326475553,
                     "app_reference": "",
                     "application": "internal_db",
                     "layer_source": "raw",
                     "date_partition": "{{ ds }}",
-                    "env": "pre", # Adicionado o novo parâmetro
+                    "env": "pre",
                     "databricks_host": Variable.get("DATABRICKS_HOST"),
                     "databricks_token": Variable.get("DATABRICKS_TOKEN"),
                 },
@@ -309,11 +318,11 @@ with DAG(
             task_id=task_id,
             python_callable=trigger_databricks_job,
             op_kwargs={
-                "job_id": 279987160157338,
+                "job_id": 653516439392628,
                 "application": "instituicao_reviews",
                 "layer_source": "s_compass",
                 "date_partition": "{{ ds }}",
-                "env": "pre", # Adicionado o novo parâmetro
+                "env": "pre",
                 "databricks_host": Variable.get("DATABRICKS_HOST"),
                 "databricks_token": Variable.get("DATABRICKS_TOKEN"),
             },
@@ -328,9 +337,13 @@ with DAG(
             task_id=task_id,
             python_callable=trigger_databricks_job,
             op_kwargs={
-                "job_id": 190064442350392,
+                "job_id": 622671451500531,
                 "date_partition": "{{ ds }}", 
-                "env": "pre", # Adicionado o novo parâmetro
+                "env": "pre",
+                "table_target_name": "reviews_customer_compass",
+                "layer_target": "g_compass",
+                "layer_source": "s_compass",
+                "source_table_name": "instituicao_reviews",
                 "databricks_host": Variable.get("DATABRICKS_HOST"),
                 "databricks_token": Variable.get("DATABRICKS_TOKEN"),
             },
