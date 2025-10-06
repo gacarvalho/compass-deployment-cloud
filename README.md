@@ -66,7 +66,7 @@ A solução centraliza as informações em um **Data Lake no ambiente Cloud Azur
 
 A arquitetura proposta é baseada em um ambiente **Azure Cloud**, utilizando tecnologias para ingestão, processamento, armazenamento e visualização de dados. A solução é composta por várias camadas, cada uma com um papel específico no fluxo de dados.
 
-![<arquitetura-data-master-compass>](https://raw.githubusercontent.com/gacarvalho/compass-deployment-cloud/refs/heads/main/img/arqutietura.png?token=GHSAT0AAAAAADJZCQKKDE7IIXCKBNSVQJUA2HC65GQ)
+![<arquitetura-data-master-compass>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/arqutietura.png?raw=true)
 
 | **Camada / Componente** | **Descrição** | **Tecnologias / Versões** |
 |:--------------------------|:----------------|:----------------------------|
