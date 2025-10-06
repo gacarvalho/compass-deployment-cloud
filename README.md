@@ -70,13 +70,13 @@ A arquitetura proposta é baseada em um ambiente **Azure Cloud**, utilizando tec
 
 | **Camada / Componente** | **Descrição** | **Tecnologias / Versões** |
 |:--------------------------|:----------------|:----------------------------|
-| **Ingestão** | Extração de dados das fontes externas (Google Play e Apple Store) e internas (MongoDB) para o Data Lake. | **Azure Data Factory**, **Python orquestrado via Airflow** |
+| **Ingestão** | Extração de dados das fontes externas (Apple Store) e internas (MongoDB) para o Data Lake. | **Azure Data Factory**, **Python orquestrado via Airflow** |
 | **Armazenamento** | Estruturado em camadas **Raw**, **Bronze**, **Silver** e **Gold** para persistência. | **Azure Data Lake Storage (Gen2)** |
 | **Banco de Dados Operacional** | Armazena as avaliações internas dos usuários. | **MongoDB 7** |
 | **Processamento** | Executa pipelines distribuídos de transformação e agregação de dados. | **Azure Databricks (Apache Spark 3.5.0)** |
 | **Telemetria e Observabilidade** | Centraliza métricas de desempenho e logs de execução. | **Grafana**, **Azure Log Analytics** |
 | **Governança** | Gerencia catálogos de dados, metadados e políticas de acesso. | **Unity Catalog** |
-| **Fontes Externas** | Captura avaliações e metadados de aplicativos das lojas. | **Google Play**, **Apple Store** |
+| **Fontes Externas** | Captura avaliações e metadados de aplicativos das lojas. | ****Apple Store** |
 | **Orquestração de Pipelines** | Coordena agendamentos, dependências e execução de tarefas de ETL/ELT. | **Airflow** |
 
 ---
