@@ -1,4 +1,4 @@
-# 🧭 ♨️ COMPASS: Solução de Analytics para Experiência do Cliente
+🧭 ♨️ COMPASS: Solução de Analytics para Experiência do Cliente
 
 ---
 
