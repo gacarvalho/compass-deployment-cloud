@@ -250,7 +250,7 @@ As regras funcionais implementadas garantem a estrutura final dos dados e a inte
 |:---:|:---:|:---|:---|
 | **RN004** | Criação de Partição Temporal | Cria a coluna de partição **`review_month`** (formato **YYYYMM**) a partir de `review_date`. | Preparar a chave de partição para a tabela Gold. |
 | **RN005** | Agregação e Sentimento | Agrupa os dados e calcula: **`total_reviews`**, **`positive_reviews`** (rating $\ge 4$), **`negative_reviews`** (rating $\le 2$) e **`neutral_reviews`** (rating $= 3$). | Criar as métricas de volume de reviews por mês e categoria de sentimento. |
-| **RN006** | Cálculo de Média e Score de Sentimento | Calcula a **`avg_rating`** e o **`sentiment_score`** usando a fórmula: $(\text{positive\_reviews} - \text{negative\_reviews}) / \text{total\_reviews}$. | Gerar Indicadores-Chave de Performance (KPIs) de sentimento. |
+| **RN006** | Cálculo de Média e Score de Sentimento | Calcula a `avg-rating` e o `sentiment-score` usando a fórmula: **$(\text{positive-reviews} - \text{negative-reviews}) / \text{total-reviews}$**. | Gerar Indicadores-Chave de Performance (KPIs) de sentimento. |
 | **RN007** | Gravação e Sobrescrita | Grava na tabela de destino (`gold.<table_target>`) particionada por **`review_month`**, usando `replaceWhere` para sobrescrever a partição mensal atual. | Garantir a atomicidade e a gestão da partição mensal. |
 | **RN008** | Otimização da Tabela | Executa o comando **`OPTIMIZE`** na tabela de destino. | Otimizar o desempenho de consulta na camada final. |
 
