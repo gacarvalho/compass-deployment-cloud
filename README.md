@@ -40,7 +40,7 @@ Este documento apresenta a visão geral do projeto, abrangendo desde os objetivo
         * [`s_compass.instituicao_reviews` (Silver)](#s_compassinstituicao_reviews-silver)
         * [`g_compass.reviews_customer_compass` (Gold)](#g_compassreviews_customer_compass-gold)
         * [`metadata_compass.data_params` (Controle)](#metadata_compassdata_params-controle)
-6[**Melhorias e Considerações Finais**](#7-melhorias-e-considerações-finais)
+6.  [**Melhorias e Considerações Finais**](#7-melhorias-e-considerações-finais)
 
 ---
 
