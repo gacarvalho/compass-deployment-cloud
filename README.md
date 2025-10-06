@@ -200,7 +200,7 @@ A orquestração é realizada pelo **Apache Airflow**. Cada DAG (Directed Acycli
 
 A solução foi projetada para atender o time de negócio, proporcionando uma visão estratégica das principais dores dos clientes e da concorrência. Permite análises em diferentes níveis de granularidade.
 
-![<fluxo-funcional>](https://github.com/gacarvalho/compass-deployment/blob/compass/infra-3.0.0/img/fluxo%20de%20negocios.jpg?raw=true)
+![<fluxo-funcional>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/jornada-cliente.png?raw=true)
 
 A unificação e o enriquecimento das dores dos clientes com dados externos (Apple Store, Google Play, Reclame Aqui, etc.) permite uma visão mais holística, possibilitando:
 * Identificação mais precisa de pontos de fricção.
