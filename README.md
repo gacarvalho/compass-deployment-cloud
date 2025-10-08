@@ -33,7 +33,7 @@ Este documento apresenta a visão geral do projeto, abrangendo desde os objetivo
         * [3.2.2.3 Pipeline do Projeto Compass (Airflow)](#3223-pipeline-do-projeto-compass-airflow)
 4.  [**Fluxo Funcional e Jornada do Cliente**](#4-fluxo-funcional-e-jornada-do-cliente)
 5.  [**Compass como Produto Analytics para a Instituição**](#5-compass-como-produto-analytics-para-a-instituição)
-    * [5.1 Regras de Negócio](#51-regras-de-negócio)
+    * [5.1 Regras](#51-regras)
     * [5.2 Dicionário de Dados](#52-dicionário-de-dados)
         * [`b_compass.apple_reviews` (Bronze)](#b_compassapple_reviews-bronze)
         * [`b_compass.internal_db` (Bronze)](#b_compassinternal_db-bronze)
@@ -217,44 +217,44 @@ A unificação e o enriquecimento das dores dos clientes com dados externos (App
 
 O projeto Compass tem como objetivo fornecer uma solução robusta e escalável, utilizando Engenharia de Dados para identificar as principais necessidades e desafios dos clientes, com potencial de expandir a análise para concorrentes.
 
-## 5.1 Regras de Negócio
+## 5.1 Regras
 
 As regras funcionais implementadas garantem a estrutura final dos dados e a integridade mínima, focando no tratamento de dados semi-estruturados (comentários, avaliações, etc.).
 
-### 🏷️ Regras de Negócios - Ingestão Bronze
+### 🏷️ Regras - Ingestão Bronze
 
-| **ID** | **Regra de Negócio** | **Descrição Simplificada** | **Objetivo** |
-|:---:|:---:|:---|:---|
-| **RN001** | Configuração de Autenticação | Configura o Spark para usar **SAS Token** para acesso seguro ao Data Lake (**Raw**). | Permitir leitura de dados brutos usando credenciais seguras. |
-| **RN002** | Otimizações Delta Lake | Define `optimizeWrite` e `autoCompact` como `true`. | Melhorar o desempenho de escrita e leitura na tabela Delta (Bronze). |
-| **RN003** | Carregamento de Configuração | Lê a tabela `metadata_compass.data_params` (tabela de controle). | Obter metadados de ingestão dinamicamente (schemas e regras). |
+| **ID** |            **Regra**            | **Descrição Simplificada** | **Objetivo** |
+|:---:|:-------------------------------:|:---|:---|
+| **RN001** |  Configuração de Autenticação   | Configura o Spark para usar **SAS Token** para acesso seguro ao Data Lake (**Raw**). | Permitir leitura de dados brutos usando credenciais seguras. |
+| **RN002** |     Otimizações Delta Lake      | Define `optimizeWrite` e `autoCompact` como `true`. | Melhorar o desempenho de escrita e leitura na tabela Delta (Bronze). |
+| **RN003** |  Carregamento de Configuração   | Lê a tabela `metadata_compass.data_params` (tabela de controle). | Obter metadados de ingestão dinamicamente (schemas e regras). |
 | **RN006** | Inclusão de Colunas de Controle | Adiciona **`ingestion_ts`** e **`date_load`**. | Fornecer metadados essenciais para rastreabilidade, auditoria e particionamento. |
-| **RN007** | Mapeamento e Cast de Colunas | Aplica o mapeamento (`schema_depara`) e realiza o *casting* para o tipo definido no `schema_target`. | Assegurar que os dados se conformem à estrutura e tipos de dados da tabela de destino. |
-| **RN008** | Validação de Qualidade | Verifica **duplicidade** (baseada na `primary_key`) e **campos nulos** (`null_issue`). | Medir e reportar a qualidade dos dados antes da persistência. |
-| **RN011** | Envio de Métricas | Envia um *payload* JSON com métricas detalhadas de execução para o **Azure Log Analytics**. | Garantir a observabilidade e rastreabilidade da execução. |
+| **RN007** |  Mapeamento e Cast de Colunas   | Aplica o mapeamento (`schema_depara`) e realiza o *casting* para o tipo definido no `schema_target`. | Assegurar que os dados se conformem à estrutura e tipos de dados da tabela de destino. |
+| **RN008** |     Validação de Qualidade      | Verifica **duplicidade** (baseada na `primary_key`) e **campos nulos** (`null_issue`). | Medir e reportar a qualidade dos dados antes da persistência. |
+| **RN011** |        Envio de Métricas        | Envia um *payload* JSON com métricas detalhadas de execução para o **Azure Log Analytics**. | Garantir a observabilidade e rastreabilidade da execução. |
 
-### 🏷️ Regras de Negócios - Processamento Silver de Reviews
+### 🏷️ Regras - Processamento Silver de Reviews
 
-| **ID** | **Regra de Negócio** | **Descrição Simplificada** | **Objetivo** |
-|:---:|:---:|:---|:---|
-| **RN003** | Leitura com Janela Temporal | Lê tabelas da Bronze (`apple_reviews` e `internal_db`) aplicando um filtro de partição com *`days_back`* (default: 365 dias). | Buscar dados recentes e históricos relevantes. |
-| **RN004** | Padronização de Chave (Apple) | `review_id` da Apple é padronizado e gerado por **SHA2** (anonimização/hashing). | Criar um *schema* unificado e anonimizar chaves. |
+| **ID** |                 **Regra**                 | **Descrição Simplificada** | **Objetivo** |
+|:---:|:-----------------------------------------:|:---|:---|
+| **RN003** |        Leitura com Janela Temporal        | Lê tabelas da Bronze (`apple_reviews` e `internal_db`) aplicando um filtro de partição com *`days_back`* (default: 365 dias). | Buscar dados recentes e históricos relevantes. |
+| **RN004** |       Padronização de Chave (Apple)       | `review_id` da Apple é padronizado e gerado por **SHA2** (anonimização/hashing). | Criar um *schema* unificado e anonimizar chaves. |
 | **RN005** | Padronização de Chave e Rating (Internos) | `review_id` gerado por **SHA2** (`client_identification` + `app_reference`). `feedback_rating` nulo padronizado para **0**. | Garantir unicidade da chave e consistência do *rating*. |
-| **RN006** | União de Dados | Combina os *DataFrames* padronizados da Apple e Internal usando `unionByName`. | Integrar todas as fontes de reviews em um único *DataFrame*. |
-| **RN007** | Remoção de Duplicatas | Remove duplicatas baseadas na chave composta (ID do review, ID do cliente, sistema de origem e referência do app). | Garantir a unicidade dos registros. |
-| **RN010** | Remoção de Acentos | Aplica `translate` para remover acentos dos campos de texto. | Uniformizar dados textuais para análises e buscas. |
-| **RN011** | Remoção de Emojis e Símbolos | Usa `regexp_replace` para remover emojis e símbolos não textuais. | Assegurar a qualidade e formatação dos textos. |
-| **RN014** | Gravação e Sobrescrita | Grava na tabela de destino (`silver.<application>`) particionada por **`date_load`** (formato **YYYYMM**), usando `replaceWhere` para sobrescrever **apenas** a partição mensal atual. | Garantir a atomicidade e a gestão da partição mensal. |
+| **RN006** |              União de Dados               | Combina os *DataFrames* padronizados da Apple e Internal usando `unionByName`. | Integrar todas as fontes de reviews em um único *DataFrame*. |
+| **RN007** |           Remoção de Duplicatas           | Remove duplicatas baseadas na chave composta (ID do review, ID do cliente, sistema de origem e referência do app). | Garantir a unicidade dos registros. |
+| **RN010** |            Remoção de Acentos             | Aplica `translate` para remover acentos dos campos de texto. | Uniformizar dados textuais para análises e buscas. |
+| **RN011** |       Remoção de Emojis e Símbolos        | Usa `regexp_replace` para remover emojis e símbolos não textuais. | Assegurar a qualidade e formatação dos textos. |
+| **RN014** |          Gravação e Sobrescrita           | Grava na tabela de destino (`silver.<application>`) particionada por **`date_load`** (formato **YYYYMM**), usando `replaceWhere` para sobrescrever **apenas** a partição mensal atual. | Garantir a atomicidade e a gestão da partição mensal. |
 
-### 🏷️ Regras de Negócios - Agregação e Métricas Gold
+### 🏷️ Regras - Agregação e Métricas Gold
 
-| **ID** | **Regra de Negócio** | **Descrição Simplificada** | **Objetivo** |
-|:---:|:---:|:---|:---|
-| **RN004** | Criação de Partição Temporal | Cria a coluna de partição **`review_month`** (formato **YYYYMM**) a partir de `review_date`. | Preparar a chave de partição para a tabela Gold. |
-| **RN005** | Agregação e Sentimento | Agrupa os dados e calcula: **`total_reviews`**, **`positive_reviews`** (rating $\ge 4$), **`negative_reviews`** (rating $\le 2$) e **`neutral_reviews`** (rating $= 3$). | Criar as métricas de volume de reviews por mês e categoria de sentimento. |
+| **ID** |               **Regra**                | **Descrição Simplificada** | **Objetivo** |
+|:---:|:--------------------------------------:|:---|:---|
+| **RN004** |      Criação de Partição Temporal      | Cria a coluna de partição **`review_month`** (formato **YYYYMM**) a partir de `review_date`. | Preparar a chave de partição para a tabela Gold. |
+| **RN005** |         Agregação e Sentimento         | Agrupa os dados e calcula: **`total_reviews`**, **`positive_reviews`** (rating $\ge 4$), **`negative_reviews`** (rating $\le 2$) e **`neutral_reviews`** (rating $= 3$). | Criar as métricas de volume de reviews por mês e categoria de sentimento. |
 | **RN006** | Cálculo de Média e Score de Sentimento | Calcula a `avg-rating` e o `sentiment-score` usando a fórmula: **$(\text{positive-reviews} - \text{negative-reviews}) / \text{total-reviews}$**. | Gerar Indicadores-Chave de Performance (KPIs) de sentimento. |
-| **RN007** | Gravação e Sobrescrita | Grava na tabela de destino (`gold.<table_target>`) particionada por **`review_month`**, usando `replaceWhere` para sobrescrever a partição mensal atual. | Garantir a atomicidade e a gestão da partição mensal. |
-| **RN008** | Otimização da Tabela | Executa o comando **`OPTIMIZE`** na tabela de destino. | Otimizar o desempenho de consulta na camada final. |
+| **RN007** |         Gravação e Sobrescrita         | Grava na tabela de destino (`gold.<table_target>`) particionada por **`review_month`**, usando `replaceWhere` para sobrescrever a partição mensal atual. | Garantir a atomicidade e a gestão da partição mensal. |
+| **RN008** |          Otimização da Tabela          | Executa o comando **`OPTIMIZE`** na tabela de destino. | Otimizar o desempenho de consulta na camada final. |
 
 ## 5.2 Dicionário de Dados
 
