@@ -348,6 +348,7 @@ Tempo médio de processamento separado por camada Bronze, Silver e Gold.
 
 Este painel é direcionado a times técnicos de Engenharia de Dados, Pessoa responsável pela aplicação em produção e Operações, com o objetivo de garantir resposta ágil a incidentes, visibilidade total do processo e tomada de decisão baseada em evidências.
 
+![<grafana>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/dashboard-grafana.png?raw=true)
 
 
 ---
