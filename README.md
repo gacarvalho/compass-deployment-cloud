@@ -336,13 +336,13 @@ Este dashboard foi desenvolvido para fornecer uma visão técnica consolidada da
 
 📌 O que você encontrará neste painel:
 
-Status geral do pipeline: identificação clara de execuções bem-sucedidas ou com falhas.
-Volume de jobs executados, com detalhamento entre sucessos e falhas.
-Indicadores de qualidade de dados, incluindo:
-Presença de valores nulos;
-Inconsistências nos dados;
-Registros duplicados.
-Tempo médio de processamento separado por camada Bronze, Silver e Gold.
+- Status geral do pipeline: identificação clara de execuções bem-sucedidas ou com falhas.
+- Volume de jobs executados, com detalhamento entre sucessos e falhas.
+- Indicadores de qualidade de dados, incluindo:
+- Presença de valores nulos;
+- Inconsistências nos dados;
+- Registros duplicados.
+- Tempo médio de processamento separado por camada Bronze, Silver e Gold.
 
 📌 Público-alvo
 
