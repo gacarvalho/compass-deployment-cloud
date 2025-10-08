@@ -85,10 +85,10 @@ A arquitetura proposta é baseada em um ambiente **Azure Cloud**, utilizando tec
 
 O projeto Compass utiliza recursos no **Azure Cloud**, divididos em camadas de arquitetura **Batch** para *big data* e serviços de observabilidade.
 
-| **Arquitetura** | **Camada** | **Descrição** | **Público alvo** |
-|:----------------|:------------------------------|:------------------------------------------------------------------------------------------------|:-------------------------|
-| Batch | Camada de Observabilidade | Serviços para coletar e monitorar dados de telemetria, fornecendo visibilidade sobre o desempenho e a integridade. | Time Dev, Sustentação |
-| Batch | Camada de Aplicações | Aplicações desenvolvidas em PySpark (Python), com artefatos em *containers*, oferecendo processamento de dados escalável e modular. | Time Dev |
+| **Arquitetura** | **Camada** | **Descrição** | **Público alvo**                                                   |
+|:----------------|:------------------------------|:------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------|
+| Batch | Camada de Observabilidade | Serviços para coletar e monitorar dados de telemetria, fornecendo visibilidade sobre o desempenho e a integridade. | Time Dev, Pessoa responsável em sustentar a aplicação em produção. |
+| Batch | Camada de Aplicações | Aplicações desenvolvidas em PySpark (Python), com artefatos em *containers*, oferecendo processamento de dados escalável e modular. | Time Dev                                                           |
 
 ## 3.1 Descrição do Fluxo de Dados
 
@@ -103,7 +103,7 @@ As fontes de dados são divididas entre internas (MongoDB) e externas (APIs de l
 
 | Fonte | Tipo | Detalhes | Observação |
 |:---|:---|:---|:---|
-| **Base Interna (MongoDB)** | Reviews da INSTITUIÇÃO | Coleção `Reviews INSTITUICAO`: Reviews de todas as aplicações da instituição. | Simulação via `dag_e_pipeline_compass_reviews` no Airflow para alimentar a coleção. |
+| **Base Interna (MongoDB)** | Reviews da INSTITUIÇÃO | Coleção `Reviews INSTITUICAO`: Reviews de todas as aplicações da instituição. | Simulação via `DAG_COMPASS_PIPELINE` no Airflow para alimentar a coleção. |
 | **Externo (Apple Store)** | API iTunes | `itunes.apple.com`: API utilizada para coletar avaliações da **Apple Store**. | Limitação de 500 avaliações mais recentes. |
 
 ### 3.1.2 Camada de Processamento
@@ -146,6 +146,8 @@ A observabilidade é garantida por ferramentas que monitoram o desempenho e a sa
 |:---|:---|:---|
 | **Grafana** | Monitoramento e visualização de métricas operacionais e técnicas em tempo real. | Criação de dashboards para acompanhar KPIs técnicos e operacionais, integrando dados do Log Analytics. |
 | **Log Analytics** | Centralização de logs e métricas de execução do Databricks e Data Factory. | Auditoria, diagnóstico e acompanhamento da saúde operacional dos pipelines. |
+
+O dashboard contempla 
 
 ## 3.2 Aspectos Técnicos do Projeto Compass
 
@@ -327,6 +329,25 @@ As regras funcionais implementadas garantem a estrutura final dos dados e a inte
 | **`schema_target`** | `array<struct>` | **Schema final da tabela de destino, incluindo tipos de dados e colunas de controle.** |
 | **`schema_depara`** | `array<struct>` | **Mapeamento entre o nome da coluna de origem e o nome da coluna de destino.** |
 | **`rule_control`** | `array<struct>` | **Regras de validação de qualidade e controle de pipeline (e.g., `not_empty`).** |
+
+🧭 Dashboard Técnico - Aplicações e Dashboard Técnico
+
+Este dashboard foi desenvolvido para fornecer uma visão técnica consolidada da execução dos pipelines no projeto Compass, permitindo o monitoramento contínuo da saúde operacional, da qualidade dos dados e identificação de falhas dos processos em produção.
+
+📌 O que você encontrará neste painel:
+
+Status geral do pipeline: identificação clara de execuções bem-sucedidas ou com falhas.
+Volume de jobs executados, com detalhamento entre sucessos e falhas.
+Indicadores de qualidade de dados, incluindo:
+Presença de valores nulos;
+Inconsistências nos dados;
+Registros duplicados.
+Tempo médio de processamento separado por camada Bronze, Silver e Gold.
+
+📌 Público-alvo
+
+Este painel é direcionado a times técnicos de Engenharia de Dados, Pessoa responsável pela aplicação em produção e Operações, com o objetivo de garantir resposta ágil a incidentes, visibilidade total do processo e tomada de decisão baseada em evidências.
+
 
 
 ---
