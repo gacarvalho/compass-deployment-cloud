@@ -412,6 +412,37 @@ Dentro do diretório raiz do projeto `compass-deployment-cloud`, inicialize o Do
 ```bash
 docker swarm init
 ```
+Em alguns casos...
+
+O parâmetro **`--advertise-addr`** é essencial no comando `docker swarm init` e serve para **especificar qual endereço IP o nó Manager deve usar para se anunciar e se comunicar** com todos os outros Managers e Workers do cluster.
+
+##### 🎯 Por Que Você Precisa Especificar o IP?
+
+Quando você executa `docker swarm init --advertise-addr 192.168.0.x`, você está forçando o Manager a usar um IP específico, o que é crucial em dois cenários principais:
+
+1.  **Ambiguidade de Rede (IPs Múltiplos):** Se a sua máquina tiver múltiplas interfaces de rede ativas (por exemplo, uma LAN, uma Wi-Fi e uma VPN), ela terá vários IPs. O Docker não consegue adivinhar qual é o correto para o cluster e **exige** que você especifique o endereço.
+2.  **Comunicação Consistente (Protocolo Raft):** Este IP é usado pelo **Protocolo Raft** para a comunicação interna entre os nós Manager. Usar um IP fixo garante que, mesmo após reinicializações, os Managers consigam se localizar e manter o estado do cluster estável.
+
+##### 🛠️ Como Utilizar o Endereço IP
+
+##### 1. Descobrir o IP Acessível
+
+Você precisa do endereço IP **real** do Manager, que deve ser alcançável por todos os outros nós na sua rede.
+
+| Sistema Operacional | Comando | Dica |
+| :--- | :--- | :--- |
+| **Linux/macOS** | `ip addr show` ou `ifconfig` | Procure o endereço `inet` na sua interface principal (`eth0`, `en0`, etc.). |
+| **Windows** | `ipconfig` | Procure o campo **`IPv4 Address`** na sua placa de rede ativa. |
+
+*Exemplo de IP encontrado: `192.168.0.10`*
+
+##### 2. O Comando Correto
+
+Use o IP que você encontrou como valor para o parâmetro:
+
+```bash
+docker swarm init --advertise-addr 192.168.0.10
+```
 
 ![<docker-swarm-1>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/passo-1.png?raw=true)
 
