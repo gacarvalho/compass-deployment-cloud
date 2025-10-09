@@ -40,9 +40,10 @@ Este documento apresenta a visão geral do projeto, abrangendo desde os objetivo
         * [`s_compass.instituicao_reviews` (Silver)](#s_compassinstituicao_reviews-silver)
         * [`g_compass.reviews_customer_compass` (Gold)](#g_compassreviews_customer_compass-gold)
         * [`metadata_compass.data_params` (Controle)](#metadata_compassdata_params-controle)
-6.  [**Melhorias e Considerações Finais**](#7-melhorias-e-considerações-finais)
-    * [6.1 Melhorias do projeto](#61-melhorias-do-projeto)
-    * [6.2 Melhorias e Considerações Finais](#62-melhorias-e-considerações-finais)
+6. [**Instruções para Configuração e Execução do Projeto Compass**](#6-instruções-para-configuração-e-execução-do-projeto-compass)
+7. [**Melhorias e Considerações Finais**](#7-melhorias-e-considerações-finais)
+    * [7.1 Melhorias do projeto](#61-melhorias-do-projeto)
+    * [7.2 Melhorias e Considerações Finais](#62-melhorias-e-considerações-finais)
 ---
 
 
@@ -352,16 +353,416 @@ Este painel é direcionado a times técnicos de Engenharia de Dados, Pessoa resp
 
 ![<grafana>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/dashboard-grafana.png?raw=true)
 
+---
+# 6. Instruções para Configuração e Execução do Projeto Compass
+
+6.1 Pré-requisitos
+
+
+## 6.1 Pré-requisitos
+---
+### Requisitos da Máquina Local
+- **CPU:** Mínimo de 4 vCPUs
+- **Memória RAM:** Mínimo 16 GB
+- **Disco Rígido:** Mínimo 500GB
+- **Sistema Operacional:** Linux (recomendado)
+
+### Requisitos de Conectividade
+- **Acesso à Internet:** Necessário para download de imagens, dependências e integração com APIs externas
+
+### Portas Necessárias (Protocolos TCP)
+Certifique-se de que as seguintes portas estejam **liberadas**:
+
+| Porta  | Descrição / Serviço Relacionado                          |
+|--------|----------------------------------------------------------|
+| 8080	  | Apache Airflow Webserver (Interface Web de Orquestração) |
+| 4000	  | Grafana (Visualização e Monitoramento/Observabilidade)   |
+| 27017  | MongoDB (Banco de Dados Operacional)                    |
+
+> **Nota:** Ajuste as portas personalizadas conforme sua stack.
+
+### Ferramentas Necessárias
+- **Git** – para clonar o repositório do projeto
+- **Docker e Docker Compose** – para orquestração dos serviços via containers e adicione o usuário atual ao grupo docker, o que permite que ele execute comandos Docker sem precisar usar sudo. `sudo usermod -aG docker $USER` e para ativar o comando sem reiniciar a maquina utilize `newgrp docker`
+- **Acesso Root** – necessário para instalações, permissões e execução de containers com privilégios
+- **Make** – para executar comandos definidos no Makefile que facilitam tarefas como build, deploy e testes
+
+
+> [!NOTE]
+> Certifique-se de atender **todos os requisitos mínimos**, especialmente os relacionados à **máquina local**. Eles são fundamentais para garantir o funcionamento adequado e o desempenho esperado do projeto.
 
 ---
 
-# 6. Melhorias do projeto e Considerações Finais
+
+## 6.2 Passos de configuração e execução do Projeto Compass
+---
+
+🧭 **Execução 1 - Replicação do projeto via repositório**
+
+Clonagem do Repositório
+
+Clone o repositório utilizando o comando abaixo ou acesse diretamente através do link: [compass-deployment](https://github.com/gacarvalho/compass-deployment-cloud)
+
+```bash
+git clone git@github.com:gacarvalho/compass-deployment-cloud.git
+```
+
+Inicialização do Docker Swarm
+
+Dentro do diretório raiz do projeto `compass-deployment-cloud`, inicialize o Docker Swarm com o seguinte comando:
+
+```bash
+docker swarm init
+```
+
+![<docker-swarm-1>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/passo-1.png?raw=true)
+
+Criação da Rede Docker
+
+A criação da rede será realizada via `Makefile`. Certifique-se de estar na raiz do repositório conforme o path abaixo:
+
+> **Exemplo -  raiz do projeto**: `{path-projeto}/compass-deployment$`
+
+Execute o comando a seguir:
+
+```bash
+make create-network
+```
+
+![<docker-swarm-2>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/passo-2.png?raw=true)
+
+Para preparar o ambiente, execute o seguinte comando para criar a estrutura de diretórios necessária dentro de {projeto}/mnt:
+
+```bash
+# Cria o grupo 'airflow' (caso não exista) -> Necessário para executar o comando make prepare-mnt
+sudo groupadd airflow
+
+# Cria o usuário 'airflow', adiciona-o ao grupo 'airflow' e cria seu diretório home -> Necessário para executar o comando make prepare-mnt
+sudo useradd -m -g airflow airflow
+
+make prepare-mnt
+```
+
+O resultado esperado é algo semelhante ao log abaixo:
+
+** No meu caso já esta criado, então vai dar esse output!
+
+![<docker-swarm-3>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/passo-3.png?raw=true)
+
+
+Configuração do Arquivo `.env`
+
+Crie um arquivo de variáveis de ambiente no diretório indicado:
+
+```bash
+touch layer_batch/deployment/.env
+```
+
+Cole o conteúdo abaixo dentro do arquivo `.env`:
+
+
+```env
+MONGO_USER_ADMIN=gacarvalho
+MONGO_PASS_ADMIN=santand@r
+MONGO_USER=app_user
+MONGO_PASS=santand@r
+MONGO_HOST=mongodb
+MONGO_PORT=27017
+MONGO_DB=compass
+AIRFLOW_IMAGE_NAME=apache/airflow:2.5.1
+AIRFLOW_PROJ_DIR=../../mnt/airflow/
+AIRFLOW_UID=50000
+POSTGRES_PASSWORD=airflow
+POSTGRES_DB=airflow
+AIRFLOW_ENV_DIR=.
+```
+
+![<docker-swarm-4>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/passo-4.png?raw=true)
+
+E faça uma cópia do arquivo `.env` para uma pasta que você deverá criar também em `/env` na raiz do computador!
+
+```bash
+sudo mkdir /env
+cp layer_batch/deployment/.env /env/
+```
+
+**Deployment do  Airflow**
+---
+
+Antes de iniciar o deploy do Airflow, é essencial preparar o ambiente, garantindo que a estrutura de diretórios, permissões e usuários estejam corretamente configurados.
+
+Deploy do Serviço Airflow via Makefile
+
+Para realizar o deploy inicial do serviço Airflow, execute:
+
+```bash
+make deployment-airflow-service
+```
+
+Caso necessário, siga os ajustes descritos abaixo.
+
+---
+
+**Ajustes no Host**
+
+Ajustar UID do Usuário `airflow`
+
+Garante que o UID do usuário `airflow` no host corresponda ao UID do container (50000), evitando conflitos de permissões em volumes:
+
+```bash
+sudo usermod -u 50000 airflow
+```
+
+Criar Usuário e Grupo `airflow` (caso não existam)
+
+```bash
+sudo groupadd airflow
+sudo useradd -r -m -g airflow airflow
+```
+
+**Ajustar Permissões dos Diretórios**
+
+Definir o usuário e grupo corretos nas pastas de volumes montados:
+
+```bash
+sudo chown -R airflow:airflow mnt/airflow/
+sudo chown -R airflow:airflow /opt/airflow/
+```
+
+**Ajustar Permissões no Diretório de Logs**
+
+```bash
+sudo chmod -R 755 /opt/airflow/logs
+sudo mkdir -p /opt/airflow/logs/scheduler
+```
+
+Para acesso local (opcional, apenas durante desenvolvimento):
+
+```bash
+sudo chown -R $(whoami):$(whoami) /opt/airflow/logs
+chmod -R 775 /opt/airflow/logs
+sudo chown -R airflow:airflow /opt/airflow/logs
+```
+
+**Preparar Diretório de Plugins**
+
+```bash
+sudo mkdir -p mnt/airflow/plugins
+sudo chmod -R 775 mnt/airflow/plugins/
+```
+
+---
+
+**Verificação dos Volumes**
+
+Liste os diretórios para garantir a estrutura correta:
+
+```bash
+ls -la /opt/airflow/
+ls -la /opt/airflow/logs/
+```
+
+Certifique-se de que as permissões estejam corretas.
+
+---
+
+**🛠️ Inicialização e Ajuste do Banco de Dados**
+
+Após os ajustes:
+
+```bash
+make deployment-airflow-service
+```
+
+Verifique se os serviços estão no ar:
+
+```bash
+docker service ls
+```
+
+Exemplo de retorno do comando:
+
+```
+ID             NAME                                   MODE         REPLICAS   IMAGE                  PORTS
+psojstfep72o   deployment-airflow_airflow-cli         replicated   1/1        apache/airflow:2.8.1   
+0dj15z7u9sl4   deployment-airflow_airflow-init        replicated   0/1        apache/airflow:2.8.1   
+5nx5r42p5onu   deployment-airflow_airflow-scheduler   replicated   1/1        apache/airflow:2.8.1   
+vucri1omfivc   deployment-airflow_airflow-triggerer   replicated   1/1        apache/airflow:2.8.1   
+ud05mmm69cjt   deployment-airflow_airflow-webserver   replicated   1/1        apache/airflow:2.8.1   *:8080->8080/tcp
+78wswdjp040u   deployment-airflow_airflow-worker      replicated   1/1        apache/airflow:2.8.1   
+q611xj4ohqxa   deployment-airflow_flower              replicated   1/1        apache/airflow:2.8.1   *:5555->5555/tcp
+jijfkrdzfh97   deployment-airflow_postgres            replicated   1/1        postgres:13            
+9piznydj4vnc   deployment-airflow_redis               replicated   1/1        redis:latest               
+```
+
+**Correção de Erro de Inicialização do Banco de Dados**
+
+> ⚠️ Caso o `airflow-webserver` exiba o erro: `ERROR: You need to initialize the database. Please run 'airflow db init'.`
+
+Execute:
+
+```bash
+docker exec -it $(docker ps -q -f name=airflow-webserver) bash
+airflow db init
+airflow db migrate
+exit
+```
+
+Depois, reimplantamos:
+
+```bash
+make deployment-airflow-service
+```
+
+---
+
+**Criação do Usuário Admin**
+
+Acesse a interface Web do Airflow:
+
+```
+http://<IP-OU-HOST>:8080/
+```
+
+Crie o usuário administrador:
+
+```bash
+docker exec -it $(docker ps -q -f name=airflow-webserver) airflow users create \
+   --username admin \
+   --firstname Admin \
+   --lastname User \
+   --role Admin \
+   --email admin@example.com \
+   --password admin
+```
+
+**Login:**
+
+- **Usuário:** `admin`
+- **Senha:** `admin`
+
+Exemplo de visualização das DAGs:
+
+![<docker-swarm-5>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/passo-5.png?raw=true)
+![<docker-swarm-6>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/passo-6.png?raw=true)
+
+
+**Deployment do Mongo DB**
+---
+
+Para subirmos o serviço do Mongo DB, será necessário executar o Makefile para deployarmos:
+
+```bash
+make deployment-mongodb-service
+```
+
+O resultado esperado com o comando `docker service ls` é que o scale do pod seja 1/1
+
+```
+ID             NAME                                   MODE         REPLICAS   IMAGE                  PORTS    
+uoojqf4dijrl   deployment-mondodb_database-mongodb    replicated   1/1        mongo:7                *:27017->27017/tcp
+```
+
+Agora precisamos criar os usuários de serviço e as collections, primeiro será necessário entrar no terminal do container:
+
+```bash
+docker exec -it $(docker ps -q -f name=database-mongodb) mongosh admin
+```
+
+Agora, será necessário criar as collections com o comando abaixo:
+
+```bash
+use compass
+db.createCollection('reviews_instituicao_compass')
+```
+![<docker-swarm-7>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/passo-7.png?raw=true)
+
+
+Depois da criação das collections, será necessário também criar um usuário de "serviço", nesse caso estou usando como `gacarvalho`, mas voce pode alterar aqui e posteriormente no arquivo .env do projeto.
+
+```bash
+use compass
+db.createUser({
+  user: "gacarvalho",
+  pwd: "santand@r",
+  roles: [
+    { role: "root", db: "admin" }
+  ]
+})
+
+db.createUser({
+  user: "app_user",
+  pwd: "secure_password123",
+  roles: [
+    { role: "root", db: "admin" }
+  ]
+})
+```
+
+Logo após a criação do usuário, você poderá sair do container e testar o acesso do usuário novo criado pelo comando abaixo:
+
+```bash
+docker exec -it $(docker ps -q -f name=database-mongodb) mongosh "mongodb://gacarvalho:santand@r@localhost:27017/compass?authSource=compass"
+```
+
+![<docker-swarm-8>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/passo-8.png?raw=true)
+
+
+**Deployment do Grafana**
+---
+
+Agora, vamos subir o serviço do Grafana pelo comando abaixo:
+
+```bash
+make deployment-grafana-service
+```
+
+Nesse momento o seu deployment já ficaria nesse status:
+
+```
+gacarvalho@gacarvalho-user:~/IdeaProjects/compass-deployment-cloud$ docker service ls
+ID             NAME                                   MODE         REPLICAS   IMAGE                    PORTS
+psojstfep72o   deployment-airflow_airflow-cli         replicated   1/1        apache/airflow:2.8.1     
+0dj15z7u9sl4   deployment-airflow_airflow-init        replicated   0/1        apache/airflow:2.8.1     
+5nx5r42p5onu   deployment-airflow_airflow-scheduler   replicated   1/1        apache/airflow:2.8.1     
+vucri1omfivc   deployment-airflow_airflow-triggerer   replicated   1/1        apache/airflow:2.8.1     
+ud05mmm69cjt   deployment-airflow_airflow-webserver   replicated   1/1        apache/airflow:2.8.1     *:8080->8080/tcp
+78wswdjp040u   deployment-airflow_airflow-worker      replicated   1/1        apache/airflow:2.8.1     
+q611xj4ohqxa   deployment-airflow_flower              replicated   1/1        apache/airflow:2.8.1     *:5555->5555/tcp
+jijfkrdzfh97   deployment-airflow_postgres            replicated   1/1        postgres:13              
+9piznydj4vnc   deployment-airflow_redis               replicated   1/1        redis:latest             
+srnzw2eotl39   deployment-grafana_grafana             replicated   2/2        grafana/grafana:latest   *:4000->3000/tcp
+uoojqf4dijrl   deployment-mondodb_database-mongodb    replicated   1/1        mongo:7                  *:27017->27017/tcp
+```
+
+![<docker-swarm-10>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/passo-10.png?raw=true)
+
+📌 Dashboard e seu código para IMPORT
+
+![<docker-swarm-11>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/passo-11.png?raw=true)
+
+> [!NOTE]
+> Lembrando que ao realizar o importe do JSON para o grafana voce precisa 1º => Criar uma conexão com o Azure Monitor no Grafana utilizando as informações no trecho abaixo, para conseguir essas informações será necessário entrar em contato comigo, 2º => Ajustar cada visão com a conexão que você criou.  
+
+
+```
+{
+    "tenant_id": "XXXXXXXXXXXXXX",
+    "client_id": "XXXXXXXXXXXXXXXXXX",
+    "client_secret": "XXXXXXXXXXXXXXXXXX",
+    "subscription_id": "XXXXXXXXXXXXXXXXXX"
+}
+```
+
+---
+
+# 7. Melhorias do projeto e Considerações Finais
 
 
 O case desenvolvido tem como foco principal evidenciar o valor estratégico da Engenharia de Dados na geração de insights significativos sobre a experiência do usuário, além de viabilizar ao time de negócios o acesso a dados reais tanto dos próprios clientes quanto dos concorrentes. A proposta busca não apenas promover uma visão aprofundada da jornada do cliente, mas também oferecer subsídios concretos para decisões orientadas por dados, fortalecendo a atuação da empresa em um mercado cada vez mais competitivo.
 
 
-## 6.1 Melhorias do projeto
+## 7.1 Melhorias do projeto
 ---
 
 A seguir, será listada os itens de sugestão de melhorias, evolução e contribuições - divididas em estrutura funcional e técnica:
@@ -381,7 +782,7 @@ A seguir, será listada os itens de sugestão de melhorias, evolução e contrib
 - **Camada de Observabilidade** – Ampliação da visão atual do dashboard de sustentação, que hoje é focado em métricas de aplicações Spark, para também contemplar o status das DAGs no Airflow. Essa melhoria visa cobrir cenários onde o job Spark não chega a ser executado por falhas no ambiente, variáveis de entrada incorretas, ou outros problemas de orquestração que atualmente não são capturados. Isso garante uma visão mais completa da saúde da aplicação e contribui para uma resposta mais rápida a falhas.
 - **Camada de Observabilidade** – Implementar alertas automáticos no Grafana vinculados à camada de validação dos dados no pipeline. Essa validação ao encontrar uma irregularidade, gere um alerta para o time de responsável por sustentação a aplicação em sustentação, onde é verificado regras de integridade, conformidade de schema e verificação de valores nulos. Com isso, é possível detectar inconsistências em tempo real, reduzir riscos operacionais e assegurar a confiabilidade dos dados utilizados nas análises e decisões estratégicas.
 
-## 6.2 Melhorias e Considerações Finais
+## 7.2 Melhorias e Considerações Finais
 
 
 O projeto Compass reforça o papel da Engenharia de Dados como elemento central na construção de soluções voltadas para o negócio e para a experiência do usuário. Ao oferecer uma estrutura confiável, escalável e orientada à geração de *insights*, a iniciativa empodera times de produto com dados relevantes sobre seus próprios aplicativos e fornece uma base comparativa frente aos concorrentes.

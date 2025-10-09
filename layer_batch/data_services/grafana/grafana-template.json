@@ -1,0 +1,1900 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 3,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 18,
+      "panels": [],
+      "title": "Métricas aplicacionais",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-green",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 0,
+        "y": 1
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "vertical",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "/^TotalExecucoes$/",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s == \"bronze\"\n| where success_count_d > 0\n| summarize TotalExecucoes = count()\n  by owner_layer_lake_s\n| order by TotalExecucoes desc\n",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ],
+            "resultFormat": "time_series"
+          },
+          "azureMonitor": {
+            "aggregation": "Total",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
+            ],
+            "dimensionFilters": [],
+            "metricName": "BytesExported",
+            "metricNamespace": "microsoft.operationalinsights/workspaces",
+            "region": "eastus2",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.OperationalInsights/workspaces",
+                "region": "eastus2",
+                "resourceGroup": "rg-data-compass",
+                "resourceName": "compass-log-analytics",
+                "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "hide": false,
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+        }
+      ],
+      "title": "Bronze Sucess",
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "green",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "noValue": "Sem métricas!",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TempoMedio_s"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "[avg] Processamento Bronze"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 2,
+        "y": 1
+      },
+      "id": 16,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s == \"bronze\"\n| extend rawTempo = tostring(total_processing_time_s)\n| extend TempoProcessamentoSegundos = todouble(extract(\"([0-9]*\\\\.?[0-9]+)\", 1, rawTempo))\n| where isnotempty(TempoProcessamentoSegundos) and isfinite(TempoProcessamentoSegundos) and TempoProcessamentoSegundos > 0\n| summarize TempoMedio_s = round(avg(TempoProcessamentoSegundos), 2)\n  by bin(TimeGenerated, 1h)\n| order by TimeGenerated asc\n",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ],
+            "resultFormat": "time_series"
+          },
+          "azureMonitor": {
+            "aggregation": "Total",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
+            ],
+            "dimensionFilters": [],
+            "metricName": "BytesExported",
+            "metricNamespace": "microsoft.operationalinsights/workspaces",
+            "region": "eastus2",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.OperationalInsights/workspaces",
+                "region": "eastus2",
+                "resourceGroup": "rg-data-compass",
+                "resourceName": "compass-log-analytics",
+                "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "hide": false,
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-green",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 4,
+        "y": 1
+      },
+      "id": 9,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "vertical",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "/^TotalExecucoes$/",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s == \"silver\"\n| where success_count_d > 0\n| summarize TotalExecucoes = count()\n  by owner_layer_lake_s\n| order by TotalExecucoes desc\n",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ]
+          },
+          "azureMonitor": {
+            "aggregation": "Total",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
+            ],
+            "dimensionFilters": [],
+            "metricName": "BytesExported",
+            "metricNamespace": "microsoft.operationalinsights/workspaces",
+            "region": "eastus2",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.OperationalInsights/workspaces",
+                "region": "eastus2",
+                "resourceGroup": "rg-data-compass",
+                "resourceName": "compass-log-analytics",
+                "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "hide": false,
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+        }
+      ],
+      "title": "Silver Sucess",
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "green",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "noValue": "Sem métricas!",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TempoMedio_s"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "[avg] Processamento Silver"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 6,
+        "y": 1
+      },
+      "id": 17,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s == \"silver\"\n| extend rawTempo = tostring(total_processing_time_s)\n| extend TempoProcessamentoSegundos = todouble(extract(\"([0-9]*\\\\.?[0-9]+)\", 1, rawTempo))\n| where isnotempty(TempoProcessamentoSegundos) and isfinite(TempoProcessamentoSegundos) and TempoProcessamentoSegundos > 0\n| summarize TempoMedio_s = round(avg(TempoProcessamentoSegundos), 2)\n  by bin(TimeGenerated, 1h)\n| order by TimeGenerated asc\n",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ],
+            "resultFormat": "time_series"
+          },
+          "azureMonitor": {
+            "aggregation": "Total",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
+            ],
+            "dimensionFilters": [],
+            "metricName": "BytesExported",
+            "metricNamespace": "microsoft.operationalinsights/workspaces",
+            "region": "eastus2",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.OperationalInsights/workspaces",
+                "region": "eastus2",
+                "resourceGroup": "rg-data-compass",
+                "resourceName": "compass-log-analytics",
+                "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "hide": false,
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-green",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 8,
+        "y": 1
+      },
+      "id": 10,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "vertical",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "/^TotalExecucoes$/",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s == \"gold\"\n| where success_count_d > 0\n| summarize TotalExecucoes = count()\n  by owner_layer_lake_s\n| order by TotalExecucoes desc\n",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ]
+          },
+          "azureMonitor": {
+            "aggregation": "Total",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
+            ],
+            "dimensionFilters": [],
+            "metricName": "BytesExported",
+            "metricNamespace": "microsoft.operationalinsights/workspaces",
+            "region": "eastus2",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.OperationalInsights/workspaces",
+                "region": "eastus2",
+                "resourceGroup": "rg-data-compass",
+                "resourceName": "compass-log-analytics",
+                "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "hide": false,
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+        }
+      ],
+      "title": "Gold Sucess",
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "green",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "noValue": "Sem métricas!",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TempoMedio_s"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "[avg] Processamento gold"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 10,
+        "y": 1
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s == \"gold\"\n| extend rawTempo = tostring(total_processing_time_s)\n| extend TempoProcessamentoSegundos = todouble(extract(\"([0-9]*\\\\.?[0-9]+)\", 1, rawTempo))\n| where isnotempty(TempoProcessamentoSegundos) and isfinite(TempoProcessamentoSegundos) and TempoProcessamentoSegundos > 0\n| summarize TempoMedio_s = round(avg(TempoProcessamentoSegundos), 2)\n  by bin(TimeGenerated, 1h)\n| order by TimeGenerated asc\n",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ],
+            "resultFormat": "time_series"
+          },
+          "azureMonitor": {
+            "aggregation": "Total",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
+            ],
+            "dimensionFilters": [],
+            "metricName": "BytesExported",
+            "metricNamespace": "microsoft.operationalinsights/workspaces",
+            "region": "eastus2",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.OperationalInsights/workspaces",
+                "region": "eastus2",
+                "resourceGroup": "rg-data-compass",
+                "resourceName": "compass-log-analytics",
+                "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "hide": false,
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-red",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "id": 11,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "vertical",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "/^TotalExecucoes$/",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s == \"bronze\"\n| where error_count_d > 0\n| summarize TotalExecucoes = count()\n  by owner_layer_lake_s\n| order by TotalExecucoes desc\n",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ]
+          },
+          "azureMonitor": {
+            "aggregation": "Total",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
+            ],
+            "dimensionFilters": [],
+            "metricName": "BytesExported",
+            "metricNamespace": "microsoft.operationalinsights/workspaces",
+            "region": "eastus2",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.OperationalInsights/workspaces",
+                "region": "eastus2",
+                "resourceGroup": "rg-data-compass",
+                "resourceName": "compass-log-analytics",
+                "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "hide": false,
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+        }
+      ],
+      "title": "Job fail Bronze",
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-red",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "vertical",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "/^TotalExecucoes$/",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s == \"silver\"\n| where error_count_d > 0\n| summarize TotalExecucoes = count()\n  by owner_layer_lake_s\n| order by TotalExecucoes desc\n",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ]
+          },
+          "azureMonitor": {
+            "aggregation": "Total",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
+            ],
+            "dimensionFilters": [],
+            "metricName": "BytesExported",
+            "metricNamespace": "microsoft.operationalinsights/workspaces",
+            "region": "eastus2",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.OperationalInsights/workspaces",
+                "region": "eastus2",
+                "resourceGroup": "rg-data-compass",
+                "resourceName": "compass-log-analytics",
+                "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "hide": false,
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+        }
+      ],
+      "title": "Job fail Silver",
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-red",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "vertical",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s == \"gold\"\n| where error_count_d > 0\n| summarize TotalExecucoes = count()\n  by owner_layer_lake_s\n| order by TotalExecucoes desc\n",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ]
+          },
+          "azureMonitor": {
+            "aggregation": "Total",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
+            ],
+            "dimensionFilters": [],
+            "metricName": "BytesExported",
+            "metricNamespace": "microsoft.operationalinsights/workspaces",
+            "region": "eastus2",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.OperationalInsights/workspaces",
+                "region": "eastus2",
+                "resourceGroup": "rg-data-compass",
+                "resourceName": "compass-log-analytics",
+                "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "hide": false,
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+        }
+      ],
+      "title": "Job fail Gold",
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": true,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 44,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "noValue": "Sem métricas para apresentar!",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "id": 3,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.19,
+        "fullHighlight": true,
+        "groupWidth": 0.07,
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "vertical",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 200
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where success_count_d > 0\n| summarize TotalExecucoes = count()\n  by bin(TimeGenerated, 1h), owner_layer_lake_s\n| order by TimeGenerated asc",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ],
+            "resultFormat": "time_series"
+          },
+          "azureMonitor": {
+            "aggregation": "Total",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
+            ],
+            "dimensionFilters": [],
+            "metricName": "BytesExported",
+            "metricNamespace": "microsoft.operationalinsights/workspaces",
+            "region": "eastus2",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.OperationalInsights/workspaces",
+                "region": "eastus2",
+                "resourceGroup": "rg-data-compass",
+                "resourceName": "compass-log-analytics",
+                "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "hide": false,
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+        }
+      ],
+      "title": "Totais de execuções com sucesso ",
+      "transparent": true,
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-red",
+            "mode": "fixed"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": true,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 2,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "noValue": "Sem métricas para apresentar!",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "id": 8,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.01,
+        "fullHighlight": false,
+        "groupWidth": 0.1,
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "vertical",
+        "showValue": "always",
+        "stacking": "normal",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        },
+        "xField": "TimeGenerated",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 300
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where error_count_d > 0\n| summarize TotalExecucoes = count()\n  by bin(TimeGenerated, 1h), owner_layer_lake_s\n| order by TimeGenerated asc",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ],
+            "resultFormat": "time_series"
+          },
+          "azureMonitor": {
+            "aggregation": "Total",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
+            ],
+            "dimensionFilters": [],
+            "metricName": "BytesExported",
+            "metricNamespace": "microsoft.operationalinsights/workspaces",
+            "region": "eastus2",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.OperationalInsights/workspaces",
+                "region": "eastus2",
+                "resourceGroup": "rg-data-compass",
+                "resourceName": "compass-log-analytics",
+                "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "hide": false,
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "0ceeb60e-a47e-4fda-8d61-778da1915644"
+        }
+      ],
+      "title": "Totais de execuções com falha ",
+      "transparent": true,
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-green",
+            "mode": "fixed"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "noValue": "Sem métricas para apresentar!",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 11
+      },
+      "id": 22,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.71,
+        "colorByField": "owner_layer_lake_s",
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": false
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s in (\"bronze\", \"silver\", \"gold\")\n| summarize \n    TotalValid = sum(todouble(column_ifexists(\"valid_data_count_d\", 0)))\n  by owner_layer_lake_s",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ],
+            "resultFormat": "time_series"
+          },
+          "azureMonitor": {
+            "allowedTimeGrainsMs": [],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A"
+        }
+      ],
+      "title": "Dados Validos por Camada",
+      "transparent": true,
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-red",
+            "mode": "fixed"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "noValue": "Sem métricas para apresentar!",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 11
+      },
+      "id": 23,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.71,
+        "colorByField": "owner_layer_lake_s",
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": false
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s in (\"bronze\", \"silver\", \"gold\")\n| summarize \n    TotalValid = sum(todouble(column_ifexists(\"invalid_data_count_d\", 0)))\n  by owner_layer_lake_s",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ],
+            "resultFormat": "time_series"
+          },
+          "azureMonitor": {
+            "allowedTimeGrainsMs": [],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A"
+        }
+      ],
+      "title": "Dados Invalidos por Camada",
+      "transparent": true,
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-blue",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "noValue": "Nenhuma métrica identificada!",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TotalDuplicados"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Duplicados identificados"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TotalNulos"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Nulos identificados"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TotalInconsistentes"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Inconsistência identificada"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 16
+      },
+      "id": 19,
+      "options": {
+        "displayMode": "lcd",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 5,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s == \"bronze\"\n| extend \n    Duplicados = todouble(column_ifexists(\"duplicate_count_d\", 0.0)),\n    Nulos = todouble(column_ifexists(\"null_count_d\", 0.0)),\n    Consistente = column_ifexists(\"validation_results_consistency_check_status_b\", true)\n| extend \n    Inconsistente = iff(Consistente != true, 1, 0)\n| summarize \n    TotalDuplicados = sum(Duplicados),\n    TotalNulos = sum(Nulos),\n    TotalInconsistentes = sum(Inconsistente)",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ]
+          },
+          "azureMonitor": {
+            "allowedTimeGrainsMs": [],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A"
+        }
+      ],
+      "title": "Camada Bronze",
+      "transparent": true,
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-blue",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "noValue": "Nenhuma métrica identificada!",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TotalDuplicados"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Duplicados identificados"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TotalNulos"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Nulos identificados"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TotalInconsistentes"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Inconsistência identificada"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 9,
+        "x": 8,
+        "y": 16
+      },
+      "id": 20,
+      "options": {
+        "displayMode": "lcd",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 5,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s == \"silver\"\n| extend \n    Duplicados = todouble(column_ifexists(\"duplicate_count_d\", 0.0)),\n    Nulos = todouble(column_ifexists(\"null_count_d\", 0.0)),\n    Consistente = column_ifexists(\"validation_results_consistency_check_status_b\", true)\n| extend \n    Inconsistente = iff(Consistente != true, 1, 0)\n| summarize \n    TotalDuplicados = sum(Duplicados),\n    TotalNulos = sum(Nulos),\n    TotalInconsistentes = sum(Inconsistente)",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ]
+          },
+          "azureMonitor": {
+            "allowedTimeGrainsMs": [],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A"
+        }
+      ],
+      "title": "Camada Silver",
+      "transparent": true,
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-blue",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "noValue": "Nenhuma métrica identificada!",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TotalDuplicados"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Duplicados identificados"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TotalNulos"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Nulos identificados"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TotalInconsistentes"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Inconsistência identificada"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 7,
+        "x": 17,
+        "y": 16
+      },
+      "id": 21,
+      "options": {
+        "displayMode": "lcd",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 5,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "dashboardTime": false,
+            "mode": "raw",
+            "query": "CompassLogs_CL\n| where TimeGenerated >= $__timeFrom() and TimeGenerated <= $__timeTo()\n| where owner_layer_lake_s == \"gold\"\n| extend \n    Duplicados = todouble(column_ifexists(\"duplicate_count_d\", 0.0)),\n    Nulos = todouble(column_ifexists(\"null_count_d\", 0.0)),\n    Consistente = column_ifexists(\"validation_results_consistency_check_status_b\", true)\n| extend \n    Inconsistente = iff(Consistente != true, 1, 0)\n| summarize \n    TotalDuplicados = sum(Duplicados),\n    TotalNulos = sum(Nulos),\n    TotalInconsistentes = sum(Inconsistente)",
+            "resources": [
+              "/subscriptions/0ceeb60e-a47e-4fda-8d61-778da1915644/resourceGroups/rg-data-compass/providers/Microsoft.OperationalInsights/workspaces/compass-log-analytics"
+            ]
+          },
+          "azureMonitor": {
+            "allowedTimeGrainsMs": [],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "f389ec9b-bb25-48d2-9f1b-9ae47d7305ee"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A"
+        }
+      ],
+      "title": "Camada Gold",
+      "transparent": true,
+      "type": "bargauge"
+    }
+  ],
+  "preload": false,
+  "refresh": "5s",
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "compass-dashboard-apps",
+  "uid": "eae28493-f36e-47f8-b014-4dda055d54a2",
+  "version": 51
+}
