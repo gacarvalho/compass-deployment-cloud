@@ -41,8 +41,10 @@ Este documento apresenta a visão geral do projeto, abrangendo desde os objetivo
         * [`g_compass.reviews_customer_compass` (Gold)](#g_compassreviews_customer_compass-gold)
         * [`metadata_compass.data_params` (Controle)](#metadata_compassdata_params-controle)
 6.  [**Melhorias e Considerações Finais**](#7-melhorias-e-considerações-finais)
-
+    * [6.1 Melhorias do projeto](#61-melhorias-do-projeto)
+    * [6.2 Melhorias e Considerações Finais](#62-melhorias-e-considerações-finais)
 ---
+
 
 # 1. Objetivo do Projeto
 
@@ -353,8 +355,33 @@ Este painel é direcionado a times técnicos de Engenharia de Dados, Pessoa resp
 
 ---
 
+# 6. Melhorias do projeto e Considerações Finais
 
-# 6. Melhorias e Considerações Finais
+
+## 6.1 Melhorias do projeto
+---
+
+O case desenvolvido tem como foco principal evidenciar o valor estratégico da Engenharia de Dados na geração de insights significativos sobre a experiência do usuário, além de viabilizar ao time de negócios o acesso a dados reais tanto dos próprios clientes quanto dos concorrentes. A proposta busca não apenas promover uma visão aprofundada da jornada do cliente, mas também oferecer subsídios concretos para decisões orientadas por dados, fortalecendo a atuação da empresa em um mercado cada vez mais competitivo.
+
+A seguir, será listada os itens de sugestão de melhorias, evolução e contribuições - divididas em estrutura funcional e técnica:
+
+
+**Funcional:**
+
+- **Escalabilidade** – A arquitetura proposta foi pensada para ser escalável e adaptável a diferentes instituições do mesmo segmento. No case, utilizamos como base os aplicativos de algumas instituições concorrentes e da própria INSTITUIÇÃO, mas como parte da evolução funcional, fica como sugestão a inclusão de novos pipelines (DAGs no Airflow) para ingestão e tratamento de dados de aplicativos de outros concorrentes. Isso possibilita comparações mais amplas e estratégicas entre os players do mercado.
+- **Enriquecimento com Dados Externos** –  Incorporar fontes de dados externas adicionais, como Google Play, Reclame Aqui ou redes sociais, pode oferecer uma visão ainda mais ampla e contextualizada sobre a percepção do cliente. Esse enriquecimento auxilia na construção de análises mais precisas e na priorização de problemas críticos para o negócio.
+- **Segmento por área** – Construção  do dashboard funcional (Power BI) com a inclusão de visões que ajudam o time de negócios a evoluir os próprios produtos, como PIX, Cartões, Contas, Consórcios, entre outros. Essa segmentação permite análises mais direcionadas, facilita a priorização de ações por equipe e contribui para uma visualização estratégica dos indicadores conforme a estrutura organizacional da instituição.
+
+
+
+**Técnicas:**
+
+- **Camada de Observabilidade** – Inserção de alertas automáticos no Grafana vinculados à falha de execução de jobs. Esses alertas serão classificados conforme a criticidade, considerando o impacto direto no pipeline e na entrega final dos dados ao cliente.
+- **Camada de Observabilidade** – Ampliação da visão atual do dashboard de sustentação, que hoje é focado em métricas de aplicações Spark, para também contemplar o status das DAGs no Airflow. Essa melhoria visa cobrir cenários onde o job Spark não chega a ser executado por falhas no ambiente, variáveis de entrada incorretas, ou outros problemas de orquestração que atualmente não são capturados. Isso garante uma visão mais completa da saúde da aplicação e contribui para uma resposta mais rápida a falhas.
+- **Camada de Observabilidade** – Implementar alertas automáticos no Grafana vinculados à camada de validação dos dados no pipeline. Essa validação ao encontrar uma irregularidade, gere um alerta para o time de responsável por sustentação a aplicação em sustentação, onde é verificado regras de integridade, conformidade de schema e verificação de valores nulos. Com isso, é possível detectar inconsistências em tempo real, reduzir riscos operacionais e assegurar a confiabilidade dos dados utilizados nas análises e decisões estratégicas.
+
+## 6.2 Melhorias e Considerações Finais
+
 
 O projeto Compass reforça o papel da Engenharia de Dados como elemento central na construção de soluções voltadas para o negócio e para a experiência do usuário. Ao oferecer uma estrutura confiável, escalável e orientada à geração de *insights*, a iniciativa empodera times de produto com dados relevantes sobre seus próprios aplicativos e fornece uma base comparativa frente aos concorrentes.
 
