@@ -356,8 +356,6 @@ Este painel é direcionado a times técnicos de Engenharia de Dados, Pessoa resp
 ---
 # 6. Instruções para Configuração e Execução do Projeto Compass
 
-6.1 Pré-requisitos
-
 
 ## 6.1 Pré-requisitos
 ---
@@ -753,6 +751,18 @@ uoojqf4dijrl   deployment-mondodb_database-mongodb    replicated   1/1        mo
     "subscription_id": "XXXXXXXXXXXXXXXXXX"
 }
 ```
+
+# 🚀 Próximo Passo: Acesso ao Azure Cloud
+
+A infraestrutura **on-premises** (local) do projeto Compass foi configurada com sucesso.
+
+Agora, o foco é a transição para o ambiente Cloud: a **estrutura de Big Data no Azure** (incluindo Data Lake, Databricks e recursos de processamento) já está provisionada e pronta para uso.
+
+> [!IMPORTANT]
+>
+> O acesso ao ambiente Azure Cloud será feito através de uma **conta de terceiro**.
+>
+> **Ação Requerida:** Entre em contato diretamente para solicitar e receber o **usuário e senha** de acesso à Cloud.
 
 ---
 
