@@ -395,7 +395,7 @@ Certifique-se de que as seguintes portas estejam **liberadas**:
 ## 6.2 Passos de configuração e execução do Projeto Compass
 ---
 
-🧭 **Execução 1 - Replicação do projeto via repositório**
+**Execução 1 - Replicação do projeto via repositório**
 
 Clonagem do Repositório
 
@@ -412,7 +412,7 @@ Dentro do diretório raiz do projeto `compass-deployment-cloud`, inicialize o Do
 ```bash
 docker swarm init --advertise-addr <ip-xxx.xxx.x.x>
 ```
-Em alguns casos...
+E agora substituir `<ip-xxx.xxx.x.x>` pelo o seu IP! 
 
 O parâmetro **`--advertise-addr`** é essencial no comando `docker swarm init` e serve para **especificar qual endereço IP o nó Manager deve usar para se anunciar e se comunicar** com todos os outros Managers e Workers do cluster.
 
