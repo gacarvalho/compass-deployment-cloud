@@ -410,7 +410,7 @@ Inicialização do Docker Swarm
 Dentro do diretório raiz do projeto `compass-deployment-cloud`, inicialize o Docker Swarm com o seguinte comando:
 
 ```bash
-docker swarm init
+docker swarm init --advertise-addr <ip-xxx.xxx.x.x>
 ```
 Em alguns casos...
 
@@ -423,16 +423,15 @@ Quando você executa `docker swarm init --advertise-addr 192.168.0.x`, você est
 1.  **Ambiguidade de Rede (IPs Múltiplos):** Se a sua máquina tiver múltiplas interfaces de rede ativas (por exemplo, uma LAN, uma Wi-Fi e uma VPN), ela terá vários IPs. O Docker não consegue adivinhar qual é o correto para o cluster e **exige** que você especifique o endereço.
 2.  **Comunicação Consistente (Protocolo Raft):** Este IP é usado pelo **Protocolo Raft** para a comunicação interna entre os nós Manager. Usar um IP fixo garante que, mesmo após reinicializações, os Managers consigam se localizar e manter o estado do cluster estável.
 
-### 🛠️ Como Utilizar o Endereço IP
+### Como Utilizar o Endereço IP
 
 ### 1. Descobrir o IP Acessível
 
 Você precisa do endereço IP **real** do Manager, que deve ser alcançável por todos os outros nós na sua rede.
 
 | Sistema Operacional | Comando | Dica |
-| :--- | :--- | :--- |
-| **Linux/macOS** | `ip addr show` ou `ifconfig` | Procure o endereço `inet` na sua interface principal (`eth0`, `en0`, etc.). |
-| **Windows** | `ipconfig` | Procure o campo **`IPv4 Address`** na sua placa de rede ativa. |
+|:--------------------| :--- | :--- |
+| **Linux**           | `ip addr show` ou `ifconfig` | Procure o endereço `inet` na sua interface principal (`eth0`, `en0`, etc.). |
 
 *Exemplo de IP encontrado: `192.168.0.10`*
 
