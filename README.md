@@ -756,7 +756,7 @@ uoojqf4dijrl   deployment-mondodb_database-mongodb    replicated   1/1        mo
 
 A infraestrutura **on-premises** (local) do projeto Compass foi configurada com sucesso.
 
-Agora, o foco é a transição para o ambiente Cloud: a **estrutura de Big Data no Azure** (incluindo Data Lake, Databricks e recursos de processamento) já está provisionada e pronta para uso.
+Agora, o foco é a transição para o ambiente Cloud: a **estrutura de Dados no Azure** (incluindo Data Lake, Databricks e recursos de processamento) já está provisionada e pronta para uso.
 
 > [!IMPORTANT]
 >
