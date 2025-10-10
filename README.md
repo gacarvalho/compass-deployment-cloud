@@ -12,12 +12,12 @@ O repositório **compass-deployment-cloud** é uma solução desenvolvida no con
 
 ![<data-master-compass>](https://github.com/gacarvalho/repo-spark-delta-iceberg/blob/main/header.png?raw=true)
 
-Este documento apresenta a visão geral do projeto, abrangendo desde os objetivos iniciais até a descrição técnica da arquitetura, fluxos funcionais, tecnologias empregadas, instruções para execução e considerações finais. A proposta é oferecer um panorama completo sobre o funcionamento do Compass como **produto de analytics voltado à experiência do cliente**.
+Este documento apresenta a visão geral do case, abrangendo desde os objetivos iniciais até a descrição técnica da arquitetura, fluxos funcionais, tecnologias empregadas, instruções para execução e considerações finais. A proposta é oferecer um panorama completo sobre o funcionamento do Compass como **produto de analytics voltado à experiência do cliente**.
 
 ---
 
-1.  [**Objetivo do Projeto**](#1-objetivo-do-projeto)
-    * [1.1 O Projeto Compass](#11-o-projeto-compass)
+1.  [**Objetivo do Case**](#1-objetivo-do-case)
+    * [1.1 O Case Compass](#11-o-case-compass)
 2.  [**Arquitetura da Solução (Visão Geral)**](#2-arquitetura-da-solução-visão-geral)
 3.  [**Visão Geral da Arquitetura Técnica**](#3-visão-geral-da-arquitetura-técnica)
     * [3.1 Descrição do Fluxo de Dados](#31-descrição-do-fluxo-de-dados)
@@ -25,12 +25,12 @@ Este documento apresenta a visão geral do projeto, abrangendo desde os objetivo
         * [3.1.2 Camada de Processamento](#312-camada-de-processamento)
         * [3.1.3 Camada de Armazenamento](#313-camada-de-armazenamento)
         * [3.1.4 Camada de Visualização e Telemetria (Observabilidade)](#314-camada-de-visualização-e-telemetria-observabilidade)
-    * [3.2 Aspectos Técnicos do Projeto Compass](#32-aspectos-técnicos-do-projeto-compass)
+    * [3.2 Aspectos Técnicos do case Compass](#32-aspectos-técnicos-do-case-compass)
         * [3.2.1 Tecnologias Utilizadas](#321-tecnologias-utilizadas)
-        * [3.2.2 Características da Execução do Projeto](#322-características-da-execução-do-projeto)
-        * [3.2.2.1 Infraestrutura do Projeto Compass (Azure)](#3221-infraestrutura-do-projeto-compass-azure)
-        * [3.2.2.2 Aplicações do Projeto Compass (Batch)](#3222-aplicações-do-projeto-compass-batch)
-        * [3.2.2.3 Pipeline do Projeto Compass (Airflow)](#3223-pipeline-do-projeto-compass-airflow)
+        * [3.2.2 Características da Execução do case](#322-características-da-execução-do-case)
+        * [3.2.2.1 Infraestrutura do case Compass (Azure)](#3221-infraestrutura-do-case-compass-azure)
+        * [3.2.2.2 Aplicações do case Compass (Batch)](#3222-aplicações-do-case-compass-batch)
+        * [3.2.2.3 Pipeline do case Compass (Airflow)](#3223-pipeline-do-case-compass-airflow)
 4.  [**Fluxo Funcional e Jornada do Cliente**](#4-fluxo-funcional-e-jornada-do-cliente)
 5.  [**Compass como Produto Analytics para a Instituição**](#5-compass-como-produto-analytics-para-a-instituição)
     * [5.1 Regras](#51-regras)
@@ -40,28 +40,29 @@ Este documento apresenta a visão geral do projeto, abrangendo desde os objetivo
         * [`s_compass.instituicao_reviews` (Silver)](#s_compassinstituicao_reviews-silver)
         * [`g_compass.reviews_customer_compass` (Gold)](#g_compassreviews_customer_compass-gold)
         * [`metadata_compass.data_params` (Controle)](#metadata_compassdata_params-controle)
-6. [**Instruções para Configuração e Execução do Projeto Compass**](#6-instruções-para-configuração-e-execução-do-projeto-compass)
+6. [**Custo do case**](#6-custo-do-case)
+7. [**Instruções para Configuração e Execução do case Compass**](#7-instruções-para-configuração-e-execução-do-case-compass)
 7. [**Melhorias e Considerações Finais**](#7-melhorias-e-considerações-finais)
-    * [7.1 Melhorias do projeto](#61-melhorias-do-projeto)
+    * [7.1 Melhorias do case](#61-melhorias-do-case)
     * [7.2 Melhorias e Considerações Finais](#62-melhorias-e-considerações-finais)
 ---
 
 
-# 1. Objetivo do Projeto
+# 1. Objetivo do Case
 
 A idealização deste case surgiu da necessidade de fortalecer o alinhamento entre o time de negócios e a Engenharia de Dados, com foco na resolução de desafios práticos relacionados à **jornada do usuário**. A iniciativa teve como ponto de partida a ausência de visibilidade aprofundada sobre a forma como os clientes interagem com os produtos e serviços da empresa.
 
 Diante desse cenário, o objetivo central foi desenvolver uma solução capaz de **capturar, tratar e estruturar dados de interação dos usuários**, viabilizando análises confiáveis e acionáveis para suporte à tomada de decisão. A arquitetura foi desenhada com foco em flexibilidade e escalabilidade, permitindo sua aplicação em diferentes contextos e ampliando o potencial de geração de valor, inclusive para comparação com padrões comportamentais de outras empresas do setor.
 
-## 1.1 O Projeto Compass
+## 1.1 O Case Compass
 
-O Projeto **Data Master Compass** é uma iniciativa de Engenharia de Dados projetada para capturar e analisar **feedbacks de clientes** sobre produtos e serviços. O nome **Compass** reflete seu propósito: **orientar** o time de negócios na melhoria contínua de processos e soluções, com base em dados reais.
+O Case **Data Master Compass** é uma iniciativa de Engenharia de Dados projetada para capturar e analisar **feedbacks de clientes** sobre produtos e serviços. O nome **Compass** reflete seu propósito: **orientar** o time de negócios na melhoria contínua de processos e soluções, com base em dados reais.
 
 A solução centraliza as informações em um **Data Lake no ambiente Cloud Azure**, organizando os dados por data de referência e segmento de público. Isso proporciona *insights* valiosos para **Product Owners, Product Managers e Gerentes de Projetos**, permitindo decisões baseadas em evidências e alinhadas às necessidades reais dos usuários.
 
 > [!NOTE]
 > 🧭 **Por que o nome "Compass"?**
-> O nome Compass (em português, bússola) foi escolhido por representar a principal missão do projeto: **guiar decisões estratégicas** com base em dados confiáveis. Assim como uma bússola orienta o caminho em meio à incerteza, o projeto orienta as equipes na identificação de problemas, oportunidades e prioridades nos aplicativos, com base na percepção real dos usuários.
+> O nome Compass (em português, bússola) foi escolhido por representar a principal missão do case: **guiar decisões estratégicas** com base em dados confiáveis. Assim como uma bússola orienta o caminho em meio à incerteza, o case orienta as equipes na identificação de problemas, oportunidades e prioridades nos aplicativos, com base na percepção real dos usuários.
 
 ---
 
@@ -86,7 +87,7 @@ A arquitetura proposta é baseada em um ambiente **Azure Cloud**, utilizando tec
 
 # 3. Visão Geral da Arquitetura Técnica
 
-O projeto Compass utiliza recursos no **Azure Cloud**, divididos em camadas de arquitetura **Batch** para *big data* e serviços de observabilidade.
+O case Compass utiliza recursos no **Azure Cloud**, divididos em camadas de arquitetura **Batch** para *big data* e serviços de observabilidade.
 
 | **Arquitetura** | **Camada** | **Descrição** | **Público alvo**                                                   |
 |:----------------|:------------------------------|:------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------|
@@ -145,24 +146,24 @@ A Camada de Armazenamento mantém os dados persistidos, garantindo **segurança,
 
 A observabilidade é garantida por ferramentas que monitoram o desempenho e a saúde dos pipelines.
 
-| Ferramenta | Objetivo Principal | Uso no Projeto Compass |
+| Ferramenta | Objetivo Principal | Uso no Case Compass |
 |:---|:---|:---|
 | **Grafana** | Monitoramento e visualização de métricas operacionais e técnicas em tempo real. | Criação de dashboards para acompanhar KPIs técnicos e operacionais, integrando dados do Log Analytics. |
 | **Log Analytics** | Centralização de logs e métricas de execução do Databricks e Data Factory. | Auditoria, diagnóstico e acompanhamento da saúde operacional dos pipelines. |
 
 O dashboard contempla 
 
-## 3.2 Aspectos Técnicos do Projeto Compass
+## 3.2 Aspectos Técnicos do Case Compass
 
-O projeto foi concebido para execução em um ambiente *on-premises* com integração ao **Azure Cloud**.
+O Case foi concebido para execução em um ambiente *on-premises* com integração ao **Azure Cloud**.
 
-### 3.2.1 Características da Execução do Projeto
+### 3.2.1 Características da Execução do Case
 
-O projeto é executado em uma infraestrutura **on-premises** onde os serviços são instanciados em **contêineres Docker**, orquestrados pelo **Docker Swarm** e toda parte de armazenamento do Delta Lake e processamento é feito na Azure Cloud.
+O Case é executado em uma infraestrutura **on-premises** onde os serviços são instanciados em **contêineres Docker**, orquestrados pelo **Docker Swarm** e toda parte de armazenamento do Delta Lake e processamento é feito na Azure Cloud.
 
 > **Docker Swarm:** Escolhido por sua **simplicidade operacional**, **integração nativa com Docker** e **baixa sobrecarga computacional**, ideal para o ambiente local.
 
-### 3.2.2.1 Infraestrutura do Projeto Compass (Azure)
+### 3.2.2.1 Infraestrutura do Case Compass (Azure)
 
 Esta seção descreve a infraestrutura atual baseada em serviços **gerenciados da Azure**.
 
@@ -183,15 +184,15 @@ Esta seção descreve a infraestrutura atual baseada em serviços **gerenciados 
 - **Silver** → Dados tratados.
 - **Gold** → Dados analíticos e agregados.
 
-### 3.2.2.2 Aplicações do Projeto Compass (Batch)
+### 3.2.2.2 Aplicações do Case Compass (Batch)
 
 As aplicações são desenvolvidas em **Apache Spark (PySpark)**, focadas em arquitetura **Batch** para garantir alta confiabilidade, escalabilidade e eficiência no processamento diário de grandes volumes de dados.
 
-### 3.2.2.3 Pipeline do Projeto Compass (Airflow)
+### 3.2.2.3 Pipeline do Case Compass (Airflow)
 
 A orquestração é realizada pelo **Apache Airflow**. Cada DAG (Directed Acyclic Graph) representa um pipeline específico de negócio.
 
-#### Resumo das DAGs do Projeto Compass
+#### Resumo das DAGs do Case Compass
 
 | **Nome da DAG** | **Descrição** | **Principais JOBs / Tarefas** |
 |:---|:---|:---|
@@ -218,7 +219,7 @@ A unificação e o enriquecimento das dores dos clientes com dados externos (App
 
 # 5. Compass como Produto Analytics para a Instituição
 
-O projeto Compass tem como objetivo fornecer uma solução robusta e escalável, utilizando Engenharia de Dados para identificar as principais necessidades e desafios dos clientes, com potencial de expandir a análise para concorrentes.
+O Case Compass tem como objetivo fornecer uma solução robusta e escalável, utilizando Engenharia de Dados para identificar as principais necessidades e desafios dos clientes, com potencial de expandir a análise para concorrentes.
 
 ## 5.1 Regras
 
@@ -335,7 +336,7 @@ As regras funcionais implementadas garantem a estrutura final dos dados e a inte
 
 🧭 Dashboard Técnico - Aplicações e Dashboard Técnico
 
-Este dashboard foi desenvolvido para fornecer uma visão técnica consolidada da execução dos pipelines no projeto Compass, permitindo o monitoramento contínuo da saúde operacional, da qualidade dos dados e identificação de falhas dos processos em produção.
+Este dashboard foi desenvolvido para fornecer uma visão técnica consolidada da execução dos pipelines no Case Compass, permitindo o monitoramento contínuo da saúde operacional, da qualidade dos dados e identificação de falhas dos processos em produção.
 
 📌 O que você encontrará neste painel:
 
@@ -353,11 +354,33 @@ Este painel é direcionado a times técnicos de Engenharia de Dados, Pessoa resp
 
 ![<grafana>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/dashboard-grafana.png?raw=true)
 
+
 ---
-# 6. Instruções para Configuração e Execução do Projeto Compass
+
+6. Custo do Case
+
+A execução completa do pipeline Compass, abrangendo as etapas de ingestão, processamento e armazenamento, teve um custo total de R$ 3,55.
+
+![<custos>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/custos.png?raw=true)
+
+Um dos principais motivos para o case Compass ter adotado o MongoDB em ambiente on-premises, em vez do MongoDB Atlas na Azure Cloud, foi a redução de custos operacionais. Essa decisão permitiu evitar um gasto estimado de aproximadamente R$ 320,46 por mês se utilizassemos uma instância M10, mantendo a performance e a disponibilidade necessárias para o case.
 
 
-## 6.1 Pré-requisitos
+| **Cluster** | **Configuração** | **vCPUs / RAM / Storage** | **Custo por hora (US$)** | **Custo mensal (US$)** | **Custo mensal (R$)**¹ |
+|--------------|------------------|----------------------------|---------------------------|--------------------------|-------------------------|
+| **M10** | Nível básico para workloads pequenas | 2 vCPUs / 2 GB RAM / 8 GB disco | **$0.08/h** | **$58.00/mês** | **≈ R$ 320/mês** |
+| **M20** | Nível intermediário para workloads médias | 4 vCPUs / 4 GB RAM / 16 GB disco | **$0.20/h** | **$143.74/mês** | **≈ R$ 795/mês** |
+| **M30** | Nível avançado para workloads maiores | 8 vCPUs / 8 GB RAM / 32 GB disco | **$0.54/h** | **$386.20/mês** | **≈ R$ 2.135/mês** |
+
+¹ Conversão aproximada considerando **1 USD = R$ 5,53**.
+
+
+
+---
+# 7. Instruções para Configuração e Execução do Case Compass
+
+
+## 7.1 Pré-requisitos
 ---
 ### Requisitos da Máquina Local
 - **CPU:** Mínimo de 4 vCPUs
@@ -380,22 +403,22 @@ Certifique-se de que as seguintes portas estejam **liberadas**:
 > **Nota:** Ajuste as portas personalizadas conforme sua stack.
 
 ### Ferramentas Necessárias
-- **Git** – para clonar o repositório do projeto
+- **Git** – para clonar o repositório do Case
 - **Docker e Docker Compose** – para orquestração dos serviços via containers e adicione o usuário atual ao grupo docker, o que permite que ele execute comandos Docker sem precisar usar sudo. `sudo usermod -aG docker $USER` e para ativar o comando sem reiniciar a maquina utilize `newgrp docker`
 - **Acesso Root** – necessário para instalações, permissões e execução de containers com privilégios
 - **Make** – para executar comandos definidos no Makefile que facilitam tarefas como build, deploy e testes
 
 
 > [!NOTE]
-> Certifique-se de atender **todos os requisitos mínimos**, especialmente os relacionados à **máquina local**. Eles são fundamentais para garantir o funcionamento adequado e o desempenho esperado do projeto.
+> Certifique-se de atender **todos os requisitos mínimos**, especialmente os relacionados à **máquina local**. Eles são fundamentais para garantir o funcionamento adequado e o desempenho esperado do case.
 
 ---
 
 
-## 6.2 Passos de configuração e execução do Projeto Compass
+## 7.2 Passos de configuração e execução do Case Compass
 ---
 
-**Execução 1 - Replicação do projeto via repositório**
+**Execução 1 - Replicação do case via repositório**
 
 Clonagem do Repositório
 
@@ -431,7 +454,7 @@ Você precisa do endereço IP **real** do Manager, que deve ser alcançável por
 
 | Sistema Operacional | Comando | Dica |
 |:--------------------| :--- | :--- |
-| **Linux**           | `ip addr show` ou `ifconfig` | Procure o endereço `inet` na sua interface principal (`eth0`, `en0`, etc.). |
+| **Linux**           | `ip addr show`  | Procure o endereço `inet` na sua interface principal (`eth0`, `en0`, etc.). |
 
 *Exemplo de IP encontrado: `192.168.0.10`*
 
@@ -784,7 +807,7 @@ uoojqf4dijrl   deployment-mondodb_database-mongodb    replicated   1/1        mo
 
 # 🚀 Próximo Passo: Acesso ao Azure Cloud
 
-A infraestrutura **on-premises** (local) do projeto Compass foi configurada com sucesso.
+A infraestrutura **on-premises** (local) do Case Compass foi configurada com sucesso.
 
 Agora, o foco é a transição para o ambiente Cloud: a **estrutura de Dados no Azure** (incluindo Data Lake, Databricks e recursos de processamento) já está provisionada e pronta para uso.
 
@@ -796,13 +819,13 @@ Agora, o foco é a transição para o ambiente Cloud: a **estrutura de Dados no 
 
 ---
 
-# 7. Melhorias do projeto e Considerações Finais
+# 7. Melhorias do Case e Considerações Finais
 
 
 O case desenvolvido tem como foco principal evidenciar o valor estratégico da Engenharia de Dados na geração de insights significativos sobre a experiência do usuário, além de viabilizar ao time de negócios o acesso a dados reais tanto dos próprios clientes quanto dos concorrentes. A proposta busca não apenas promover uma visão aprofundada da jornada do cliente, mas também oferecer subsídios concretos para decisões orientadas por dados, fortalecendo a atuação da empresa em um mercado cada vez mais competitivo.
 
 
-## 7.1 Melhorias do projeto
+## 7.1 Melhorias do Case
 ---
 
 A seguir, será listada os itens de sugestão de melhorias, evolução e contribuições - divididas em estrutura funcional e técnica:
@@ -825,6 +848,6 @@ A seguir, será listada os itens de sugestão de melhorias, evolução e contrib
 ## 7.2 Melhorias e Considerações Finais
 
 
-O projeto Compass reforça o papel da Engenharia de Dados como elemento central na construção de soluções voltadas para o negócio e para a experiência do usuário. Ao oferecer uma estrutura confiável, escalável e orientada à geração de *insights*, a iniciativa empodera times de produto com dados relevantes sobre seus próprios aplicativos e fornece uma base comparativa frente aos concorrentes.
+O Case Compass reforça o papel da Engenharia de Dados como elemento central na construção de soluções voltadas para o negócio e para a experiência do usuário. Ao oferecer uma estrutura confiável, escalável e orientada à geração de *insights*, a iniciativa empodera times de produto com dados relevantes sobre seus próprios aplicativos e fornece uma base comparativa frente aos concorrentes.
 
 Com isso, o Compass se torna uma ferramenta valiosa para instituições que buscam não só entender, mas também **antecipar as necessidades dos seus clientes** — fortalecendo sua presença no mercado e avançando na jornada rumo à principalidade financeira.
