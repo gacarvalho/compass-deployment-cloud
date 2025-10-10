@@ -363,7 +363,8 @@ Este painel é direcionado a times técnicos de Engenharia de Dados, Pessoa resp
 
 A **execução completa** do **pipeline** Compass, abrangendo as etapas de ingestão, processamento e armazenamento, teve um custo total de R$ 3,55.
 
-> **Nota:** A execução completa do pipeline tem custo estimado de R$ 3,55, porém há custos adicionais relacionados à infraestrutura de rede, como o NAT Gateway e recursos de conectividade.
+> [!NOTE]
+> A execução completa do pipeline tem custo estimado de R$ 3,55, porém há custos adicionais relacionados à infraestrutura de rede, como o NAT Gateway e recursos de conectividade.
 
 
 ![<custos>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/custos.png?raw=true)
