@@ -42,9 +42,11 @@ Este documento apresenta a visão geral do case, abrangendo desde os objetivos i
         * [`metadata_compass.data_params` (Controle)](#metadata_compassdata_params-controle)
 6. [**Custo do case**](#6-custo-do-case)
 7. [**Instruções para Configuração e Execução do case Compass**](#7-instruções-para-configuração-e-execução-do-case-compass)
-7. [**Melhorias e Considerações Finais**](#7-melhorias-e-considerações-finais)
-    * [7.1 Melhorias do case](#61-melhorias-do-case)
-    * [7.2 Melhorias e Considerações Finais](#62-melhorias-e-considerações-finais)
+8. [**Melhorias e Considerações Finais**](#7-melhorias-e-considerações-finais)
+    * [8.1 Melhorias do case](#81-melhorias-do-case)
+    * [8.2 Melhorias e Considerações Finais](#82-melhorias-e-considerações-finais)
+9. [**Referências**](#9-referências)
+
 ---
 
 
@@ -851,3 +853,18 @@ A seguir, será listada os itens de sugestão de melhorias, evolução e contrib
 O Case Compass reforça o papel da Engenharia de Dados como elemento central na construção de soluções voltadas para o negócio e para a experiência do usuário. Ao oferecer uma estrutura confiável, escalável e orientada à geração de *insights*, a iniciativa empodera times de produto com dados relevantes sobre seus próprios aplicativos e fornece uma base comparativa frente aos concorrentes.
 
 Com isso, o Compass se torna uma ferramenta valiosa para instituições que buscam não só entender, mas também **antecipar as necessidades dos seus clientes** — fortalecendo sua presença no mercado e avançando na jornada rumo à principalidade financeira.
+
+
+# 9. Referências
+
+## MongoDB
+- [MongoDB Pricing](https://www.mongodb.com/pricing) — Página oficial de preços do MongoDB Atlas.
+- [MongoDB Atlas Pricing Calculator](https://www.mongodb.com/pricing/calculator/estimate/68e98b23fa34fd8b979250d0/cluster-configuration/68e98b23f31df20c03263b9c?isPrimaryConfigExpanded=true&isAdvancedConfigExpanded=false&isBackupNetworkExpanded=false&name=Cluster+1&instanceSize=M30&diskSizeGb=32&shardCount=1) — Estimativa detalhada de custos baseada em clusters M10, M20 e M30.
+
+## Azure Databricks
+- [Microsoft Learn — Azure Databricks](https://learn.microsoft.com/en-us/azure/databricks/) — Documentação oficial sobre o uso e configuração do Azure Databricks.
+- [Databricks Glossary — Data Lakehouse](https://www.databricks.com/br/glossary/data-lakehouse) — Conceitos e arquitetura da abordagem Lakehouse.
+
+## Orquestração e Processamento de Dados
+- [Apache Airflow Documentation](https://airflow.apache.org/docs/) — Guia oficial e recursos sobre orquestração de pipelines de dados.
+- [Apache Spark Documentation (v3.5.0)](https://spark.apache.org/docs/3.5.0/) — Documentação da versão utilizada para o processamento distribuído no projeto Compass.
