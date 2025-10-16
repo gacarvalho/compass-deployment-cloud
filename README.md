@@ -703,6 +703,20 @@ Exemplo de visualização das DAGs:
 ![<docker-swarm-5>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/passo-5.png?raw=true)
 ![<docker-swarm-6>](https://github.com/gacarvalho/compass-deployment-cloud/blob/main/img/passo-6.png?raw=true)
 
+Configuração de variaveis no Airflow deve ser criado seguindo a estrutura abaixo:
+
+    - KEY: AZURE_CLIENT_ID
+    - KEY: AZURE_CLIENT_SECRET
+    - KEY: AZURE_STORAGE_ACCOUNT_URL
+    - KEY: AZURE_TENANT_ID
+    - KEY: DATABRICKS_HOST	
+    - KEY: DATABRICKS_TOKEN
+    - KEY: MONGO_URI
+    - KEY: SUBSCRIPTION_ID
+
+> [!IMPORTANT]
+> **Ação Requerida:** Entre em contato diretamente para solicitar e receber o **value das keys acima**.
+
 
 **Deployment do Mongo DB**
 ---
