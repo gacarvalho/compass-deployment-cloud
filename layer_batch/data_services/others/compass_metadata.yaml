@@ -1,0 +1,143 @@
+# Configuração principal para o fluxo de dados
+flow_config:
+  # Metadados de versão e modificação
+  metadata:
+    version: "1.1"
+    last_modified: "<last_modified>"
+
+  # Definição das camadas e tabelas
+  data_layers:
+    source_layer: "raw"
+    target_table: "internal_db"
+
+  # Definições de Esquema (Schema)
+  schemas:
+    # Estrutura esperada (Schema da Origem)
+    schema_expected:
+      - name_column: "submission_date"
+        type_column: "TIMESTAMP"
+        other: ""
+      - name_column: "client.segment"
+        type_column: "STRING"
+        other: ""
+      - name_column: "client.identification"
+        type_column: "STRING"
+        other: ""
+      - name_column: "client.classification"
+        type_column: "STRING"
+        other: ""
+      - name_column: "feedback_rating"
+        type_column: "INT"
+        other: ""
+      - name_column: "feedback_comment"
+        type_column: "STRING"
+        other: ""
+      - name_column: "service_type"
+        type_column: "STRING"
+        other: ""
+      - name_column: "service_id"
+        type_column: "STRING"
+        other: ""
+      - name_column: "source_channel"
+        type_column: "STRING"
+        other: ""
+      - name_column: "service_feedback"
+        type_column: "STRING"
+        other: ""
+      - name_column: "source_id"
+        type_column: "STRING"
+        other: ""
+      - name_column: "app_reference"
+        type_column: "STRING"
+        other: ""
+      - name_column: "source_user_agent"
+        type_column: "STRING"
+        other: ""
+
+    # Estrutura do destino (Schema da Tabela Target)
+    schema_target:
+      - name_column: "submission_date"
+        type_column: "TIMESTAMP"
+      - name_column: "client_identification"
+        type_column: "STRING"
+      - name_column: "client_segment"
+        type_column: "STRING"
+      - name_column: "client_classification"
+        type_column: "STRING"
+      - name_column: "feedback_rating"
+        type_column: "INT"
+      - name_column: "feedback_comment"
+        type_column: "STRING"
+      - name_column: "service_type"
+        type_column: "STRING"
+      - name_column: "service_id"
+        type_column: "STRING"
+      - name_column: "source_channel"
+        type_column: "STRING"
+      - name_column: "service_feedback"
+        type_column: "STRING"
+      - name_column: "app_reference"
+        type_column: "STRING"
+      - name_column: "source_id"
+        type_column: "STRING"
+      - name_column: "source_user_agent"
+        type_column: "STRING"
+      - name_column: "ingestion_ts"
+        type_column: "TIMESTAMP"
+      - name_column: "date_load"
+        type_column: "STRING"
+
+  # Mapeamento de Colunas (De/Para)
+  column_mapping:
+    - source_column: "submission_date"
+      target_column: "submission_date"
+    - source_column: "client.identification"
+      target_column: "client_identification"
+    - source_column: "client.segment"
+      target_column: "client_segment"
+    - source_column: "client.classification"
+      target_column: "client_classification"
+    - source_column: "feedback_rating"
+      target_column: "feedback_rating"
+    - source_column: "feedback_comment"
+      target_column: "feedback_comment"
+    - source_column: "service_type"
+      target_column: "service_type"
+    - source_column: "service_id"
+      target_column: "service_id"
+    - source_column: "service_feedback"
+      target_column: "service_feedback"
+    - source_column: "source_channel"
+      target_column: "source_channel"
+    - source_column: "source_id"
+      target_column: "source_id"
+    - source_column: "app_reference"
+      target_column: "app_reference"
+    - source_column: "source_user_agent"
+      target_column: "source_user_agent"
+
+  # Regras de Controle e Validação
+  control_rules:
+    - rule: "not_empty"
+      value: "true"
+    - rule: "evolution_mergeschema"
+      value: "false"
+
+  # Configurações de Conexão/Leitura/Escrita
+  configurations:
+    # Configuração de Origem (Source)
+    source_config:
+      format: "json"
+      directory: "internal_db/reviews/"
+
+    # Configuração de Destino (Target)
+    target_config:
+      format: "delta"
+      mode: "append"
+      partitionBy: "date_load"
+      path_blob: "abfss://b-compass@compassdataprod.dfs.core.windows.net/"
+      directory: "b-compass"
+
+    # Configuração de Fallback/Contingência
+    fallback_config:
+      create_empty_if_missing: "true"
