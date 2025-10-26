@@ -298,8 +298,7 @@ with DAG(
                 task_id="process_internaldb",
                 python_callable=trigger_databricks_job,
                 op_kwargs={
-                    "job_id": 605068326475553,
-                    "app_reference": "",
+                    "job_id": 810223000475186,
                     "application": "internal_db",
                     "layer_source": "raw",
                     "date_partition": "{{ ds }}",

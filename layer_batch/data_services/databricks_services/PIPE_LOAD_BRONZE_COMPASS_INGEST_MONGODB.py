@@ -18,6 +18,7 @@ from pyspark.sql.utils import AnalysisException
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, TimestampType, DataType, DecimalType
 from datetime import datetime
 from pyspark.sql.window import Window
+from functools import reduce
 
 # Configuração de logging e ambiente
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -31,6 +32,7 @@ storage_account_name = "compassdataprod"
 # Recupera os secrets corretamente do scope
 container = "raw-compass"
 
+# dbutils.secrets.get é assumido como existente no ambiente Databricks
 idLoganalytics = dbutils.secrets.get(scope=secret_scope_name, key="customeridLoganalytics")
 keyLoganalytics = dbutils.secrets.get(scope=secret_scope_name, key="keyLoganalytics")
 sas_token = dbutils.secrets.get(scope=secret_scope_name, key="adlsstoragekeydata")
@@ -59,17 +61,14 @@ type_map = {
     "TIMESTAMP": T.TimestampType(),
 }
 
-# Parâmetros de entrada do job
+# Parâmetros de entrada do job (app_reference removido)
 date_partition = dbutils.widgets.get("date_partition")
-app_reference = dbutils.widgets.get("app_reference")
 application = dbutils.widgets.get("application")
 layer_source = dbutils.widgets.get("layer_source")
 env = dbutils.widgets.get("env")
 
-
 params = {
     "date_partition": date_partition,
-    "app_reference": app_reference,
     "application": application,
     "layer_source": layer_source
 }
@@ -240,7 +239,6 @@ def get_spark_schema_from_list(schema_list: list) -> T.StructType:
 def func_read_source_from_config(
     spark: SparkSession,
     source_config: Dict[str, str],
-    app_reference: str,
     schema_expected: List[Dict[str, str]],
     storage_account: str,
     container: str,
@@ -249,12 +247,10 @@ def func_read_source_from_config(
     
     base_path = f"abfss://{container}@{storage_account}.dfs.core.windows.net/{source_config['directory'].rstrip('/')}"
 
-    if app_reference == "":
-        paths_to_read = [f"{base_path}/{date_partition_path.strip()}"]
-    else: 
-        paths_to_read = [f"{base_path}/{date_partition_path.strip()}/{app_reference}"]
+    paths_to_read = [f"{base_path}/{date_partition_path.strip()}"]
     
     paths_to_read_existing = []
+    # Assumindo que dbutils.fs.ls está disponível (ambiente Databricks)
     for path in paths_to_read:
         try:
             dbutils.fs.ls(path)
@@ -269,16 +265,16 @@ def func_read_source_from_config(
     try:
         read_format = source_config['format'].lower() 
         
-        # 1. Obter o schema Spark (supondo que get_spark_schema_from_list funciona)
+        # 1. Obter o schema Spark
         spark_schema: StructType = get_spark_schema_from_list(schema_expected)
         
         # 2. Iniciar o leitor
         reader = spark.read.format(read_format).schema(spark_schema)
         
-        # 💡 ADICIONAR OPÇÃO DE LEITURA RECURSIVA
+        # 3. Add opcao de leitura recursiva
         reader = reader.option("recursiveFileLookup", "true") 
         
-        # 💡 TRATAMENTO DE FORMATOS:
+        # 4. Tratamento de formatos
         if read_format == "csv":
             reader = reader.option("header", "true")
 
@@ -295,128 +291,141 @@ def func_read_source_from_config(
 
 def add_columns_complement(
     df: DataFrame,
-    schema_target: List[Dict[str, str]],
-    schema_depara: List[Any],
+    schema_target: List[Any],  # Pode vir como Row ou dict
+    schema_depara: List[Any],  # Pode vir como Row ou dict
     delta_schema_map: Dict[str, Any],
-    app_reference: str,
     date_load: str,
-    spark: Optional[SparkSession] = None
+    spark: SparkSession # Agora obrigatório para criar DF vazio
 ) -> DataFrame:
     """
-        Adiciona colunas complementares ao DataFrame e garante a consistência das informações de controle.
-
-        Essa função realiza:
-        - Inclusão de colunas de controle, como `ingestion_ts` e `date_load`.
-        - Aplicação de fallback para a coluna `app_reference`, funcionando como ponto de controle e segregação das fontes de origem, garantindo rastreabilidade e consistência.
-        - Casting das colunas de acordo com o schema de destino e mapeamento delta.
-        - Tratamento de DataFrame vazio, criando um DataFrame compatível com o schema de destino.
-
-        Parâmetros:
-        - df (DataFrame): DataFrame de entrada.
-        - schema_target (List[Dict[str, str]]): Esquema de destino, contendo as colunas esperadas.
-        - schema_depara (List[Any]): Mapeamento de colunas de origem para destino.
-        - delta_schema_map (Dict[str, Any]): Mapeamento de tipos de dados para casting.
-        - app_reference (str): Identificador da fonte/origem do dado, usado como controle e segregação.
-        - date_load (str): Data de carregamento dos dados.
-        - spark (Optional[SparkSession]): SparkSession necessário para criar DataFrame vazio, se aplicável.
-
-        Retorna:
-        - DataFrame: DataFrame com colunas complementares, controle de ingestão e app_reference normalizado.
+    Adiciona colunas complementares ao DataFrame e garante consistência de tipos, e controle de carga.
+    A coluna 'app_reference' foi removida.
     """
-    CONTROL_COLUMNS = ["app_reference", "ingestion_ts", "date_load"]
-    
-    # --- Normaliza app_reference e define coluna temporária ---
-    app_reference_literal = F.lit(app_reference.lower().strip() if app_reference else None)
-    temp_ref_col = "_app_reference_fallback"
 
-    # --- DataFrame vazio: cria schema completo e coluna temporária ---
-    if df.rdd.isEmpty():
-        # Assumindo a existência da função get_spark_schema_from_list
+    CONTROL_COLUMNS = ["ingestion_ts", "date_load"] # "app_reference" removida
+
+    # --- Função auxiliar para resolver colunas de forma segura ---
+    def safe_col(df: DataFrame, col_name: str):
+        """
+        Retorna a coluna se existir, tenta acessar campos aninhados (ex: client.segment),
+        ou cria literal nulo caso a coluna não exista.
+        """
+        # Caso exato (coluna simples)
+        if col_name in df.columns:
+            return F.col(f"`{col_name}`")  # Escapa nomes com ponto literal
+
+        # Caso aninhado (ex: client.segment)
+        if "." in col_name:
+            base = col_name.split(".")[0]
+            if base in df.columns:
+                return F.col(col_name)
+
+        # Fallback (coluna inexistente)
+        return F.lit(None)
+
+    # --- Verifica DataFrame vazio ---
+    if df is None or len(df.head(1)) == 0:
+        # Garante criação de DataFrame vazio com o schema alvo
         final_df = spark.createDataFrame([], schema=get_spark_schema_from_list(schema_target))
-        final_df = final_df.withColumn(temp_ref_col, F.lit(None).cast(StringType()))
-    else:
-        # --- Lógica de Fallback => Verifica se 'app_reference' existe no DF de entrad
-        if "app_reference" in df.columns:
-            # Coluna existe, usa para o fallback
-            df = df.withColumn(
-                temp_ref_col,
-                F.when(F.col("app_reference").isNotNull(),
-                       F.trim(F.lower(F.col("app_reference")))).otherwise(None)
-            )
-        else:
-            # Coluna NÃO existe, cria o campo temporário com valor nulo para o coalesce
-            df = df.withColumn(temp_ref_col, F.lit(None).cast(StringType())) 
-            
-        # --- Cria mapa destino -> origem do depara ---
-        depara_list = [r if isinstance(r, dict) else r.asDict() for r in schema_depara]
-        map_dest_to_source = {d["target_column"]: d["source_column"] for d in depara_list}
+        # Adiciona as colunas de controle para manter a consistência do schema alvo
+        final_df = (
+            final_df.withColumn("ingestion_ts", F.lit(None).cast(TimestampType()))
+            .withColumn("date_load", F.lit(None).cast(StringType()))
+        )
+        return final_df
 
-        # --- Seleciona e faz cast das colunas (LÓGICA DA FUNÇÃO 1 RESTAURADA) ---
-        expressions = []
-        for col_info in schema_target:
-            col_dict = col_info if isinstance(col_info, dict) else col_info.asDict()
-            col_dest = col_dict["name_column"]
-            
-            if col_dest in CONTROL_COLUMNS:
-                continue
-                
-            # O nome da coluna de origem pode ser aninhado (ex: "client.name")
-            col_src = map_dest_to_source.get(col_dest, col_dest) 
-            
-            # Assumindo a existência das funções resolve_spark_type e delta_schema_map
-            target_type = delta_schema_map.get(col_dest, resolve_spark_type(col_dict["type_column"]))
-            
-            # Usar F.col(col_src) permite a resolução de colunas aninhadas (client.name)
-            # Se a coluna (ou o caminho aninhado) não existir, o Spark lançará um erro,
-            # mas isso é esperado para colunas obrigatórias ou mal mapeadas.
-            expressions.append(F.col(col_src).cast(target_type).alias(col_dest))
+    # --- Converte schema_depara e schema_target para dicts seguros ---
+    depara_list = [r.asDict() if hasattr(r, "asDict") else r for r in schema_depara]
+    map_dest_to_source = {d["target_column"]: d["source_column"] for d in depara_list}
 
+    schema_target_list = [r.asDict() if hasattr(r, "asDict") else r for r in schema_target]
 
-        # Inclui coluna temporária para fallback
-        expressions.append(F.col(temp_ref_col))
-        final_df = df.select(*expressions)
+    # --- Seleciona e faz cast das colunas ---
+    expressions = []
+    for col_dict in schema_target_list:
+        col_dest = col_dict["name_column"]
 
-    # --- Aplica fallback na coluna app_reference (usa o literal, depois o fallback, depois "na") ---
-    final_df = final_df.withColumn(
-        "app_reference",
-        F.coalesce(app_reference_literal, F.col(temp_ref_col), F.lit("na")).cast(StringType())
-    ).drop(temp_ref_col)
+        # Ignora colunas de controle, pois serão adicionadas ao final
+        if col_dest in CONTROL_COLUMNS:
+            continue
+
+        # Determina a origem
+        col_src = map_dest_to_source.get(col_dest, col_dest)
+
+        # Tipo alvo
+        target_type = delta_schema_map.get(
+            col_dest, resolve_spark_type(col_dict["type_column"])
+        )
+
+        # Usa safe_col para evitar erro se a coluna não existir
+        expressions.append(
+            safe_col(df, col_src).cast(target_type).alias(col_dest)
+        )
+
+    final_df = df.select(*expressions)
 
     # --- Colunas de controle ---
-    final_df = final_df.withColumn("ingestion_ts", F.current_timestamp().cast(TimestampType())) \
-                       .withColumn("date_load", F.lit(date_load).cast(StringType()))
-
-    display(final_df) 
+    final_df = (
+        final_df.withColumn("ingestion_ts", F.current_timestamp().cast(TimestampType()))
+        .withColumn("date_load", F.lit(date_load).cast(StringType()))
+    )
 
     return final_df
+
 
 
 def get_delta_schema_safe(table_name: str) -> dict:
     if spark.catalog.tableExists(table_name):
         return {f.name: f.dataType for f in spark.table(table_name).schema.fields}
     return {}
-
 def validate_data(spark: SparkSession, df: DataFrame, compass_config=None, primary_key: list = None) -> dict:
     if primary_key is None: primary_key = []
     
-    rule_list = [r.asDict() for r in compass_config[0]["rule_control"]]
-    
+    #  Acessa o objeto Row com colchetes e converte para dict ===
+    rule_list = []
+    if compass_config and compass_config[0] is not None:
+        # Pega o primeiro item (Row) e converte para dicionário, ou usa o objeto Row se já for um dict.
+        cfg_dict = compass_config[0].asDict() if hasattr(compass_config[0], "asDict") else compass_config[0]
+        
+        # Acessa 'rule_control' de forma segura.
+        rule_control_data = cfg_dict.get("rule_control") 
+        
+        # Converte os Rows dentro da lista rule_control para dicts, se necessário
+        if rule_control_data and isinstance(rule_control_data, list):
+            rule_list = [r.asDict() if hasattr(r, "asDict") else r for r in rule_control_data]
+
+
     # ======== 1. Duplicidade ========
     if primary_key and all(c in df.columns for c in primary_key):
-        df = df.withColumn("is_duplicate", (F.count("*").over(Window.partitionBy(*primary_key)) > 1))
+        window_spec = Window.partitionBy(*primary_key)
+        df = df.withColumn("is_duplicate", (F.count("*").over(window_spec) > 1))
     else:
         df = df.withColumn("is_duplicate", F.lit(False))
 
     # ======== 2. Nulos ========
     null_cols = [r.get("column_name") for r in rule_list if r.get("rule") == "not_empty" and r.get("value", "").lower() == "true"]
-    from functools import reduce
     conditions = [F.col(c).isNull() | (F.trim(F.col(c)) == "") for c in null_cols if c in df.columns]
-    df = df.withColumn("is_null_issue", reduce(lambda x, y: x | y, conditions, F.lit(False)))
+    
+    if conditions:
+        df = df.withColumn("is_null_issue", reduce(lambda x, y: x | y, conditions))
+    else:
+        df = df.withColumn("is_null_issue", F.lit(False))
+
 
     # ======== 3. Consistência de tipos ========
     df = df.withColumn("is_type_issue", F.lit(False))
 
     # ======== 4. Resumo em única passada ========
+    if df.rdd.isEmpty():
+        return {
+            "total_records": 0,
+            "valid_data": {"count": 0, "percentage": 0},
+            "invalid_data": {"count": 0, "percentage": 0},
+            "duplicate_check": {"status": True, "count": 0},
+            "null_check": {"status": True, "count": 0},
+            "type_consistency_check": {"status": True, "count": 0}
+        }
+    
     summary = df.agg(
         F.count("*").alias("total_records"),
         F.sum(F.col("is_duplicate").cast("int")).alias("duplicate_count"),
@@ -425,13 +434,14 @@ def validate_data(spark: SparkSession, df: DataFrame, compass_config=None, prima
     ).collect()[0].asDict()
 
     total = summary["total_records"]
-    valid = total - summary["duplicate_count"] - summary["null_issue_count"] - summary["type_issue_count"]
-    invalid = total - valid
-
+    
+    invalid_count = summary["duplicate_count"] + summary["null_issue_count"] + summary["type_issue_count"]
+    valid = total - invalid_count
+    
     return {
         "total_records": total,
         "valid_data": {"count": valid, "percentage": (valid / total) * 100 if total else 0},
-        "invalid_data": {"count": invalid, "percentage": (invalid / total) * 100 if total else 0},
+        "invalid_data": {"count": invalid_count, "percentage": (invalid_count / total) * 100 if total else 0},
         "duplicate_check": {"status": summary["duplicate_count"] == 0, "count": summary["duplicate_count"]},
         "null_check": {"status": summary["null_issue_count"] == 0, "count": summary["null_issue_count"]},
         "type_consistency_check": {"status": summary["type_issue_count"] == 0, "count": summary["type_issue_count"]}
@@ -442,20 +452,35 @@ def save_data(df: DataFrame, table_name: str, target_config: Dict[str, Any], dat
     if df.rdd.isEmpty():
         logger.warning("Nenhum dado para gravar. O DataFrame está vazio.")
         return
+    
+    # Garante que a coluna de partição existe antes de usá-la
+    if "date_load" not in df.columns:
+        df = df.withColumn("date_load", F.lit(date_load).cast(StringType()))
+        logger.warning("Coluna 'date_load' não encontrada no DF, adicionada agora.")
+
     writer = df.write.format(target_config["format"]).mode(target_config["mode"]).partitionBy("date_load")
+    
     if target_config["mode"] == "overwrite":
         writer = writer.option("replaceWhere", f"date_load = '{date_load}'")
         logger.info(f"Sobrescrevendo partição date_load = '{date_load}'")
+        
     writer.saveAsTable(table_name)
     logger.info(f"Dados gravados com sucesso na tabela {table_name}")
 
 def optimize_delta_table(table_name: str, partition_col: str, date_load: str, zorder_cols: List[str] = None):
     logger.info(f"Iniciando otimização da tabela {table_name} para a partição {date_load}.")
+    
+    # Verifica se a tabela existe antes de otimizar
+    if not spark.catalog.tableExists(table_name):
+         logger.warning(f"A tabela {table_name} não existe. Otimização ignorada.")
+         return
+
     optimize_cmd = f"OPTIMIZE {table_name} WHERE {partition_col} = '{date_load}'"
     if zorder_cols and len(zorder_cols) > 0:
         zorder_clause = ", ".join(zorder_cols)
         optimize_cmd += f" ZORDER BY ({zorder_clause})"
         logger.info(f"Aplicando Z-Ordering nas colunas: {zorder_cols}")
+    
     spark.sql(optimize_cmd)
     logger.info("Otimização concluída.")
 
@@ -463,7 +488,6 @@ def optimize_delta_table(table_name: str, partition_col: str, date_load: str, zo
 def run_pipeline(
     spark: SparkSession,
     date_partition: str,
-    app_reference: str,
     application: str,
     layer_source: str,
     env: str,
@@ -481,7 +505,6 @@ def run_pipeline(
         df_raw = func_read_source_from_config(
             spark=spark,
             source_config=source_config,
-            app_reference=app_reference,
             schema_expected=source_schema,
             storage_account=storage_account_name,
             container=container,
@@ -494,12 +517,13 @@ def run_pipeline(
             schema_target=target_schema,
             schema_depara=depara_schema,
             delta_schema_map=get_delta_schema_safe(f"b_compass.{application}"),
-            app_reference=app_reference,
-            date_load=date_partition
+            date_load=date_partition,
+            spark=spark
         )
         
         # 4. Validação de Qualidade de Dados
-        pk_cols = [c.asDict()["name_column"] for c in target_schema if c.asDict().get("is_pk")]
+        # Assumindo que o schema_target é uma lista de objetos que podem ser convertidos para dict
+        pk_cols = [c.asDict()["name_column"] for c in target_schema if hasattr(c, "asDict") and c.asDict().get("is_pk")]
         validation_results = validate_data(
             spark=spark,
             df=df_transformed,
@@ -516,7 +540,7 @@ def run_pipeline(
             date_load=date_partition
         )
 
-        zorder_cols = [c.asDict()["name_column"] for c in target_schema if c.asDict().get("is_zorder")]
+        zorder_cols = [c.asDict()["name_column"] for c in target_schema if hasattr(c, "asDict") and c.asDict().get("is_zorder")]
         optimize_delta_table(
             table_name=table_target_name,
             partition_col="date_load",
@@ -536,7 +560,7 @@ def run_pipeline(
         final_metrics = collector.collect_metrics(
             validation_results=validation_results,
             owner_data=owner_data,
-            id_app=application
+            id_app=application # Usando 'application' no lugar de 'app_reference'
         )
 
         if env == "pre":
@@ -548,7 +572,6 @@ def run_pipeline(
 
     except Exception as e:
         logger.error(f"Falha crítica no pipeline. Erro: {e}", exc_info=True)
-        dbutils.notebook.exit(f"Falha no pipeline: {e}")
 
 # Inicia a execução do pipeline
 if compass_config:
@@ -557,7 +580,6 @@ if compass_config:
     run_pipeline(
         spark=spark,
         date_partition=date_partition,
-        app_reference=app_reference,
         application=application,
         layer_source=layer_source,
         env=env,

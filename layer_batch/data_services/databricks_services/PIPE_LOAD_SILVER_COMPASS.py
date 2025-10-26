@@ -315,9 +315,7 @@ def unify_data(df_apple: DataFrame, df_internal: DataFrame) -> DataFrame:
     DEFAULT_STRING = F.lit("NAO_INFORMADO")
     DEFAULT_RATING = F.lit(0) # Padrão de 0 para ratings nulos/inválidos
     
-    # ----------------------------------------------------------------------
     # 1. Tratamento e Seleção de Dados Apple
-    # ----------------------------------------------------------------------
     df_apple_silver = (
         df_apple.withColumn("review_id", sha2(F.col("review_id"), 256))
         .select(
@@ -340,9 +338,7 @@ def unify_data(df_apple: DataFrame, df_internal: DataFrame) -> DataFrame:
         )
     )
     
-    # ----------------------------------------------------------------------
     # 2. Tratamento e Seleção de Dados Internos
-    # ----------------------------------------------------------------------
     df_internal_silver = (
         df_internal.withColumn("review_id", sha2(concat_ws(":", "client_identification", "app_reference"), 256))
         .select(
@@ -368,9 +364,7 @@ def unify_data(df_apple: DataFrame, df_internal: DataFrame) -> DataFrame:
         )
     )
     
-    # ----------------------------------------------------------------------
     # 3. Unificação e Retorno
-    # ----------------------------------------------------------------------
     df_unified = df_apple_silver.unionByName(df_internal_silver, allowMissingColumns=True)
 
     return df_unified
@@ -409,7 +403,7 @@ def processing_reviews(df: DataFrame) -> DataFrame:
     # Colunas que podem conter emojis
     columns_with_emojis = ["review_text", "review_title"]
     
-    # PADRÃO CORRIGIDO E SEGURO: Remove tudo que NÃO é Letra, Número, Espaço ou Pontuação.
+    # Remove tudo que NÃO é Letra, Número, Espaço ou Pontuação.
     # O Spark SQL interpreta \p{...} para classes Unicode.
     SAFE_EMOJI_AND_SYMBOL_PATTERN = r'[^\p{L}\p{N}\s\p{P}]' 
 
