@@ -9,22 +9,18 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.dummy import DummyOperator
 from airflow.utils.task_group import TaskGroup
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from azure.identity import ClientSecretCredential
 from azure.mgmt.datafactory import DataFactoryManagementClient
 from azure.storage.blob import BlobServiceClient
 from airflow.models import Variable
 from scripts.extract_mongo_data import extract_data_from_mongo
 
-# Configura o logger para a DAG
+# Configura o logger
 logger = logging.getLogger(__name__)
 
-# --- CLASSE DEDICADA PARA O AZURE DATA FACTORY ---
+# ------------------- CLASSE PARA AZURE DATA FACTORY -------------------
 class ADFPipelineClient:
-    """
-    Cliente para interagir com o Azure Data Factory.
-    Centraliza a lógica de autenticação e execução de pipelines.
-    Agora usa a credencial padrão para suportar Managed Identity.
-    """
     def __init__(self, subscription_id):
         self.credential = ClientSecretCredential(
             tenant_id=Variable.get("AZURE_TENANT_ID"),
@@ -36,6 +32,7 @@ class ADFPipelineClient:
             credential=self.credential,
             subscription_id=self.subscription_id
         )
+
     def run_pipeline(self, resource_group, factory_name, pipeline_name, parameters=None, polling_interval=30):
         logger.info(f"Disparando o pipeline '{pipeline_name}' no ADF '{factory_name}'.")
         run_response = self.client.pipelines.create_run(
@@ -63,26 +60,22 @@ class ADFPipelineClient:
         if status != "Succeeded":
             raise Exception(f"Pipeline '{pipeline_name}' falhou com status: {status}")
 
-# --- FUNÇÃO PARA O OPERADOR DO AZURE ---
+# ------------------- FUNÇÕES AUXILIARES -------------------
 def trigger_adf_pipeline(**kwargs):
     pipeline_name = kwargs.get('pipeline_name')
     resource_group = kwargs.get('resource_group')
     factory_name = kwargs.get('factory_name')
     parameters = kwargs.get('parameters')
     polling_interval = kwargs.get('polling_interval', 30)
-        
     subscription_id = kwargs.get("subscription_id")
-        
     if not subscription_id:
         raise ValueError("ID da assinatura do Azure não encontrada.")
     client = ADFPipelineClient(subscription_id)
     client.run_pipeline(resource_group, factory_name, pipeline_name, parameters, polling_interval)
 
-# --- FUNÇÃO PARA TRANSFERIR O ARQUIVO PARA O BLOB COM AUTENTICAÇÃO VIA CLIENT SECRET ---
 def upload_to_blob_with_token(**kwargs):
     ti = kwargs['ti']
     file_path = ti.xcom_pull(task_ids='group_raw_ingestion.group_raw_extract_internal_db.extract_from_mongodb', key='extracted_file_path')
-
     if not file_path or not os.path.exists(file_path):
         raise FileNotFoundError(f"Arquivo não encontrado em: {file_path}")
     now_str = datetime.utcnow().strftime("%Y-%m-%d_%H%M%S")
@@ -90,7 +83,6 @@ def upload_to_blob_with_token(**kwargs):
     blob_name = f"internal_db/reviews/{kwargs['ds']}/reviews_mongo_{now_str}.json"
     account_url = Variable.get("AZURE_STORAGE_ACCOUNT_URL")
     
-    # AUTENTICAÇÃO EXPLICITA COM CLIENT_SECRET
     credential = ClientSecretCredential(
         tenant_id=Variable.get("AZURE_TENANT_ID"),
         client_id=Variable.get("AZURE_CLIENT_ID"),
@@ -99,55 +91,25 @@ def upload_to_blob_with_token(**kwargs):
     try:
         blob_service_client = BlobServiceClient(account_url, credential=credential)
         blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-                
-        logger.info(f"Iniciando o upload do arquivo '{file_path}' para o Blob Storage...")
+        logger.info(f"Iniciando upload do arquivo '{file_path}' para o Blob Storage...")
         with open(file_path, "rb") as data:
             blob_client.upload_blob(data, overwrite=True)
-                    
-        logger.info(f"Upload para '{blob_name}' no container '{container_name}' concluído com sucesso.")
-            
+        logger.info(f"Upload para '{blob_name}' concluído com sucesso.")
     except Exception as e:
-        logger.error(f"Erro durante o upload para o Azure Blob Storage: {e}")
+        logger.error(f"Erro durante upload para Azure Blob Storage: {e}")
         raise
 
-# --- FUNÇÃO PARA EXECUTAR O JOB DO DATABRICKS ---
 def trigger_databricks_job(**kwargs):
     databricks_host = kwargs.get("databricks_host")
     databricks_token = kwargs.get("databricks_token")
     if not all([databricks_host, databricks_token]):
-        raise ValueError("Credenciais do Databricks não encontradas. Verifique se as variáveis do Airflow foram definidas.")
+        raise ValueError("Credenciais do Databricks não encontradas.")
     
     job_id = kwargs['job_id']
-    
-    # PARÂMETROS OBRIGATÓRIOS E OPCIONAIS
-    date_partition = kwargs['date_partition']
-    application = kwargs.get('application')
-    layer_source = kwargs.get('layer_source')
-    app_reference = kwargs.get('app_reference')
-    env = kwargs.get('env')
-    table_target_name = kwargs.get('table_target_name')
-    layer_target = kwargs.get('layer_target')
-    source_table_name = kwargs.get('source_table_name')
-        
-    parameters = {}
-    
-    # Constrói o dicionário de parâmetros apenas com os valores que existem
-    if application:
-        parameters["application"] = application
-    if date_partition:
-        parameters["date_partition"] = date_partition
-    if layer_source:
-        parameters["layer_source"] = layer_source
-    if app_reference:
-        parameters["app_reference"] = app_reference
-    if env:
-        parameters["env"] = env
-    if table_target_name:
-        parameters["table_target_name"] = table_target_name
-    if layer_target:
-        parameters["layer_target"] = layer_target
-    if source_table_name:
-        parameters["source_table_name"] = source_table_name
+    parameters = {k: v for k, v in kwargs.items() if k in [
+        "application", "date_partition", "layer_source", "app_reference",
+        "env", "table_target_name", "layer_target", "source_table_name"
+    ] and v is not None}
 
     run_url = f"{databricks_host}/api/2.1/jobs/run-now"
     run_status_url = f"{databricks_host}/api/2.1/jobs/runs/get"
@@ -157,49 +119,36 @@ def trigger_databricks_job(**kwargs):
     }
 
     try:
-        log_message = f"Iniciando o job Databricks com ID: {job_id}."
-        if application:
-            log_message += f" para {application}"
-        if layer_source:
-            log_message += f" na camada {layer_source}"
-        if app_reference:
-            log_message += f" e app_reference: {app_reference}"
-        if env:
-            log_message += f" (ambiente: {env})"
-        logger.info(log_message)
-        
+        logger.info(f"Iniciando job Databricks {job_id} com parâmetros: {parameters}")
         payload = {"job_id": job_id, "job_parameters": parameters}
         response = requests.post(run_url, headers=headers, json=payload)
         response.raise_for_status()
         run_id = response.json().get('run_id')
-        logger.info(f"Job iniciado com sucesso. Run ID: {run_id}")
-        
         while True:
             status_response = requests.get(run_status_url, headers=headers, params={"run_id": run_id})
             status_response.raise_for_status()
-            status = status_response.json()
-            life_cycle_state = status['state']['life_cycle_state']
-            result_state = status['state'].get('result_state')
-            logger.info(f"Status atual do job: {life_cycle_state}, resultado: {result_state}")
-            
+            state = status_response.json()['state']
+            life_cycle_state = state['life_cycle_state']
+            result_state = state.get('result_state')
+            logger.info(f"Status job: {life_cycle_state}, resultado: {result_state}")
             if life_cycle_state in ['TERMINATED', 'SKIPPED', 'INTERNAL_ERROR']:
                 if result_state != 'SUCCESS':
-                    raise Exception(f"Job falhou ou foi cancelado. Detalhes: {json.dumps(status, indent=2)}")
+                    raise Exception(f"Job falhou: {json.dumps(status_response.json(), indent=2)}")
                 break
             time.sleep(10)
-        
         logger.info(f"Job Databricks {job_id} finalizado com sucesso!")
-        
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Erro na requisição para a API do Databricks: {e}")
-        if e.response is not None:
-            logger.error(f"Detalhes do erro da API: {e.response.text}")
-        raise
     except Exception as e:
-        logger.error(f"Erro inesperado durante a execução do job: {e}")
+        logger.error(f"Erro durante execução do job: {e}")
         raise
 
-# --- DEFINIÇÃO DA DAG ---
+# ------------------- FUNÇÃO PARA TRIGGER DAG EXPURGO -------------------
+def generate_unique_run_id(context, dag_run_obj):
+    ds = context['ds']
+    now_str = datetime.utcnow().strftime("%H%M%S")
+    dag_run_obj.run_id = f"manual__{ds}__{now_str}"
+    return dag_run_obj
+
+# ------------------- DEFINIÇÃO DA DAG -------------------
 with DAG(
     dag_id="DAG_COMPASS_PIPELINE",
     default_args={
@@ -215,10 +164,9 @@ with DAG(
     catchup=False,
     tags=["compass", "adf", "databricks", "reviews", "refactor"],
 ) as dag:
-        
+
     dm_init = DummyOperator(task_id="dm_init")
 
-    # Configuração dos aplicativos
     apps_config = [
         {"app_name": "bradesco", "app_id": "336954985"},
         {"app_name": "santander_way", "app_id": "1154266372"},
@@ -227,16 +175,15 @@ with DAG(
         {"app_name": "itau", "app_id": "474505665"}
     ]
 
-    # Parâmetros comuns do ADF
     adf_params = {
         "resource_group": "rg-data-compass",
         "factory_name": "datafact-compass",
         "polling_interval": 30,
     }
 
-    # --- CAMADA RAW (INGESTÃO) ---
-    with TaskGroup("group_raw_ingestion", tooltip="Ingestão de dados para a camada RAW") as group_raw_ingestion:
-        with TaskGroup("group_ingestion_adf", tooltip="Ingestão de Reviews para a RAW via ADF") as group_ingestion_adf:
+    # --- RAW ---
+    with TaskGroup("group_raw_ingestion", tooltip="Ingestão de dados RAW") as group_raw_ingestion:
+        with TaskGroup("group_ingestion_adf", tooltip="Ingestão via ADF") as group_ingestion_adf:
             ingestion_tasks = {}
             for app in apps_config:
                 task_id = f"ingest_adf_{app['app_name']}"
@@ -247,14 +194,11 @@ with DAG(
                         "pipeline_name": "pipeline_itunes_reviews",
                         "subscription_id": Variable.get("SUBSCRIPTION_ID"),
                         **adf_params,
-                        "parameters": {
-                            "appId": app['app_id'],
-                            "appName": app['app_name'],
-                        }
+                        "parameters": {"appId": app['app_id'], "appName": app['app_name']}
                     }
                 )
 
-        with TaskGroup("group_raw_extract_internal_db", tooltip="Extração de dados internos para o Azure Blob Storage") as group_raw_extract_internal_db:
+        with TaskGroup("group_raw_extract_internal_db", tooltip="Extração para Azure Blob") as group_raw_extract_internal_db:
             extract_from_mongodb = PythonOperator(
                 task_id="extract_from_mongodb",
                 python_callable=extract_data_from_mongo,
@@ -270,9 +214,9 @@ with DAG(
             )
             extract_from_mongodb >> transfer_to_blob
 
-    # --- CAMADA BRONZE (PROCESSAMENTO INICIAL) ---
-    with TaskGroup("group_bronze_processing", tooltip="Processamento da camada RAW para BRONZE") as group_bronze_processing:
-        with TaskGroup("group_databricks_itunes", tooltip="Processamento de Reviews do iTunes para a camada Bronze") as group_databricks_itunes:
+    # --- BRONZE ---
+    with TaskGroup("group_bronze_processing", tooltip="RAW -> BRONZE") as group_bronze_processing:
+        with TaskGroup("group_databricks_itunes", tooltip="iTunes -> Bronze") as group_databricks_itunes:
             processing_tasks = {}
             for app in apps_config:
                 task_id = f"process_databricks_{app['app_name']}"
@@ -293,7 +237,7 @@ with DAG(
                     execution_timeout=timedelta(minutes=60)
                 )
 
-        with TaskGroup("group_databricks_internaldb", tooltip="Processamento de Reviews do banco interno para a camada Bronze") as group_databricks_internaldb:
+        with TaskGroup("group_databricks_internaldb", tooltip="InternalDB -> Bronze") as group_databricks_internaldb:
             process_internaldb = PythonOperator(
                 task_id="process_internaldb",
                 python_callable=trigger_databricks_job,
@@ -310,11 +254,10 @@ with DAG(
                 execution_timeout=timedelta(minutes=60)
             )
 
-    # --- CAMADA SILVER (REFINAMENTO) ---
-    with TaskGroup("group_databricks_silver", tooltip="Processamento de Reviews para a camada Silver") as group_databricks_silver:
-        task_id = "process_databricks_silver"
+    # --- SILVER ---
+    with TaskGroup("group_databricks_silver", tooltip="Bronze -> Silver") as group_databricks_silver:
         process_databricks_silver = PythonOperator(
-            task_id=task_id,
+            task_id="process_databricks_silver",
             python_callable=trigger_databricks_job,
             op_kwargs={
                 "job_id": 653516439392628,
@@ -329,11 +272,10 @@ with DAG(
             execution_timeout=timedelta(minutes=60)
         )
 
-    # --- CAMADA GOLD (AGREGACAO) ---
-    with TaskGroup("group_databricks_gold", tooltip="Processamento de Reviews para a camada Gold") as group_databricks_gold:
-        task_id = "process_databricks_gold"
+    # --- GOLD ---
+    with TaskGroup("group_databricks_gold", tooltip="Silver -> Gold") as group_databricks_gold:
         process_databricks_gold = PythonOperator(
-            task_id=task_id,
+            task_id="process_databricks_gold",
             python_callable=trigger_databricks_job,
             op_kwargs={
                 "job_id": 622671451500531,
@@ -350,8 +292,22 @@ with DAG(
             execution_timeout=timedelta(minutes=60)
         )
 
-    # --- DEPENDÊNCIAS ---
+    # --- TRIGGER DAG DE EXPURGO ---
+    trigger_expurgo = TriggerDagRunOperator(
+	    task_id='trigger_dag_expurgo',
+	    trigger_dag_id='DAG_COMPASS_PIPELINE_EXPURGE',
+	    conf={
+		"date_partition": "{{ ds }}",
+		"env": "pre"
+	    },
+	    wait_for_completion=True
+	)
+
+
+    # ------------------- DEPENDÊNCIAS -------------------
     dm_init >> group_raw_ingestion
     group_raw_ingestion >> group_bronze_processing
     group_bronze_processing >> group_databricks_silver
     group_databricks_silver >> group_databricks_gold
+    group_databricks_gold >> trigger_expurgo
+
